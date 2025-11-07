@@ -1,0 +1,7 @@
+content	netscapesidebar				content/
+skin	netscapesidebar	classic/1.0	skin/
+
+locale	netscapesidebar	en-US		locale/en-US/
+locale	netscapesidebar	ko			locale/ko/
+
+overlay	chrome://browser/content/browser.xul	chrome://netscapesidebar/content/sidebar/sidebarOverlay.xul
