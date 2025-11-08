@@ -6,10 +6,11 @@
 	 - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
 <?xml-stylesheet href="chrome://browser/skin/" type="text/css"?>
-<?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/sidebar.css"
-	type="text/css"?>
-<?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/preview.css"
-	type="text/css"?>
+<?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/sidebar.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/skin/sidebar/sidebar.css" type="text/css"?>
+<?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/preview.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/skin/sidebar/preview.css" type="text/css"?>
+	
 
 <!DOCTYPE window SYSTEM "chrome://netscapesidebar/locale/sidebar/preview.dtd" >
 

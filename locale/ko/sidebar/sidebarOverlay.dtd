@@ -2,11 +2,11 @@
    - License, v. 2.0. If a copy of the MPL was not distributed with this
    - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
 
-<!ENTITY sidebar.panels.label           "탐색창">
+<!ENTITY sidebar.panels.label           "탐색 창">
 <!ENTITY sidebar.reload.label           "새로 고침">
 <!ENTITY sidebar.reload.accesskey       "R">
 <!ENTITY sidebar.picker.label           "탭">
-<!ENTITY sidebar.customize.label        "탐색창 설정…">
+<!ENTITY sidebar.customize.label        "탐색 창 설정…">
 <!ENTITY sidebar.customize.accesskey    "u">
 <!ENTITY sidebar.hide.label             "탭 감추기">
 <!ENTITY sidebar.hide.accesskey         "H">
@@ -19,12 +19,12 @@
 <!ENTITY sidebar.loading.stop.label     "중지">
 <!ENTITY sidebar.loading.stop.accesskey "S">
 
-<!ENTITY sidebar.no-panels.state     "탐색창이 비어 있습니다.">
+<!ENTITY sidebar.no-panels.state     "탐색 창이 비어 있습니다.">
 <!ENTITY sidebar.no-panels.add       '도구 모음을 선택하면 탭을 추가할 수 있습니다.'>
-<!ENTITY sidebar.no-panels.hide      '탐색창을 감추기 위해서는 보기 메뉴의 탐색창을 선택하세요.'>
-<!ENTITY sidebar.sbDirectory.label   "탐색창 디렉토리…">
+<!ENTITY sidebar.no-panels.hide      '탐색 창을 감추기 위해서는 보기 메뉴의 탐색창을 선택하세요.'>
+<!ENTITY sidebar.sbDirectory.label   "탭 둘러보기…">
 
-<!ENTITY sidebar.pagenotfound.label  "이 도구는 사용가능하지 않습니다.">
+<!ENTITY sidebar.pagenotfound.label  "이 도구는 사용 가능하지 않습니다.">
 <!ENTITY sidebar.close.tooltip       "탐색창 닫기">
 <!ENTITY sidebar.open.tooltip        "내 탐색창 열기">
 

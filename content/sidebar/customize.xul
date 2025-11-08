@@ -8,6 +8,7 @@
 
 <?xml-stylesheet href="chrome://browser/skin/" type="text/css"?>
 <?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/customize.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/skin/sidebar/customize.css" type="text/css"?>
 
 <!DOCTYPE dialog [
 <!ENTITY % customizeDTD SYSTEM "chrome://netscapesidebar/locale/sidebar/customize.dtd" >

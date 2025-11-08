@@ -47,11 +47,6 @@ sidebarheader[type="splitter"] {
 	cursor: n-resize;
 }
 
-.sidebarheader-main {
-	min-width: 1px;
-	min-height: 1px;
-}
-
 /**
  * texttab folder lookalike e.g. for sidebar panel headers
  */

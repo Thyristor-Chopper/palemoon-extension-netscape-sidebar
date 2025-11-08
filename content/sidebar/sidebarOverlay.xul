@@ -11,6 +11,7 @@
 
 <?xml-stylesheet href="chrome://netscapesidebar/content/sidebar/sidebarOverlay.css" type="text/css"?>
 <?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/sidebar.css" type="text/css"?>
+<?xml-stylesheet href="chrome://browser/skin/sidebar/sidebar.css" type="text/css"?>
 
 <!DOCTYPE overlay [
 <!ENTITY % sidebarOverlayDTD SYSTEM "chrome://netscapesidebar/locale/sidebar/sidebarOverlay.dtd" >
@@ -18,12 +19,6 @@
 ]>
 
 <overlay id="sidebarOverlay" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-	<!-- Overlay of broadcasterset to get our panels in -->
-	<broadcasterset id="mainBroadcasterSet">
-		<broadcaster id="viewBookmarksSidebar" autoCheck="false" type="checkbox" group="sidebar" sidebartitle="&sidebar.client-bookmarks.label;" sidebarurl="chrome://browser/content/bookmarks/bookmarksPanel.xul" oncommand="toggleSidebar('viewBookmarksSidebar');" />
-		<broadcaster id="viewHistorySidebar" autoCheck="false" type="checkbox" group="sidebar" sidebartitle="&sidebar.client-history.label;" sidebarurl="chrome://browser/content/history/history-panel.xul" oncommand="toggleSidebar('viewHistorySidebar');" />
-	</broadcasterset>
-
 	<commandset id="mainCommandSet">
 		<command id="toggleSidebar" oncommand="SidebarShowHide();" />
 	</commandset>
@@ -46,38 +41,34 @@
 
 	<!-- Overlay the sidebar panels -->
 	<vbox id="sidebar-box" hidden="true" persist="hidden width collapsed">
-		<splitter id="sidebar-panels-splitter" collapse="after" persist="state" onmouseup="PersistHeight();" hidden="true">
-			<grippy />
-		</splitter>
+		<sidebarheader id="sidebar-header">
+			<label id="sidebar-title-initial" value="&sidebar.panels.label;" hidden="true" />
+			<toolbarbutton type="menu" id="sidebar-panel-picker" class="tabbable" onpopupshowing="SidebarBuildPickerPopup();" label="&sidebar.picker.label;" insertafter="sidebar-title">
+				<menupopup id="sidebar-panel-picker-popup" datasources="rdf:null" ref="urn:sidebar:current-panel-list" oncommand="SidebarTogglePanel(event.target);" >
+					<template>
+						<rule>
+							<conditions>
+								<content uri="?uri" />
+								<triple subject="?uri" predicate="http://home.netscape.com/NC-rdf#panel-list" object="?panel-list" />
+								<member container="?panel-list" child="?panel" />
+								<triple subject="?panel" predicate="http://home.netscape.com/NC-rdf#title" object="?title" />
+							</conditions>
+							<bindings>
+								<binding subject="?panel" predicate="http://home.netscape.com/NC-rdf#exclude" object="?exclude" />
+								<binding subject="?panel" predicate="http://home.netscape.com/NC-rdf#prereq" object="?prereq" />
+							</bindings>
+							<action>
+								<menuitem uri="?panel" type="checkbox" class="menuitem-sidebar" label="?title" exclude="?exclude" prereq="?prereq" />
+							</action>
+						</rule>
+					</template>
+					<menuitem label="&sidebar.customize.label;" accesskey="&sidebar.customize.accesskey;" oncommand="SidebarCustomize();" />
+					<menuitem label="&sidebar.sbDirectory.label;" oncommand="BrowseMorePanels();" />
+					<menuseparator />
+				</menupopup>
+			</toolbarbutton>
+		</sidebarheader>
 		<vbox id="sidebar-panels-splitter-box" flex="1" persist="collapsed">
-			<sidebarheader id="sidebar-title-box" class="sidebarheader-main" label="&sidebar.panels.label;" persist="hidden" type="box" collapse="after" onmouseup="PersistHeight();" tooltipopen="&sidebar.open.tooltip;" tooltipclose="&sidebar.close.tooltip;">
-				<toolbarbutton type="menu" id="sidebar-panel-picker" class="tabbable" onpopupshowing="SidebarBuildPickerPopup();" label="&sidebar.picker.label;">
-					<menupopup id="sidebar-panel-picker-popup" datasources="rdf:null" ref="urn:sidebar:current-panel-list" oncommand="SidebarTogglePanel(event.target);" >
-						<template>
-							<rule>
-								<conditions>
-									<content uri="?uri" />
-									<triple subject="?uri" predicate="http://home.netscape.com/NC-rdf#panel-list" object="?panel-list" />
-									<member container="?panel-list" child="?panel" />
-									<triple subject="?panel" predicate="http://home.netscape.com/NC-rdf#title" object="?title" />
-								</conditions>
-								<bindings>
-									<binding subject="?panel" predicate="http://home.netscape.com/NC-rdf#exclude" object="?exclude" />
-									<binding subject="?panel" predicate="http://home.netscape.com/NC-rdf#prereq" object="?prereq" />
-								</bindings>
-								<action>
-									<menuitem uri="?panel" type="checkbox" class="menuitem-sidebar" label="?title" exclude="?exclude" prereq="?prereq" />
-								</action>
-							</rule>
-						</template>
-						<menuitem label="&sidebar.customize.label;" accesskey="&sidebar.customize.accesskey;" oncommand="SidebarCustomize();" />
-						<menuitem label="&sidebar.sbDirectory.label;" oncommand="BrowseMorePanels();" />
-						<menuseparator />
-					</menupopup>
-				</toolbarbutton>
-				<toolbarbutton id="sidebar-close-button" class="close-icon" oncommand="SidebarShowHide();" tooltiptext="&sidebar.close.tooltip;" />
-			</sidebarheader>
-
 			<vbox id="sidebar-panels" datasources="rdf:null" ref="urn:sidebar:current-panel-list" last-selected-panel="urn:sidebar:panel:bookmarks" persist="last-selected-panel height collapsed" flex="1" onclick="return contentAreaClick(event);">
 				<template id="sidebar-template">
 					<rule>
@@ -126,6 +117,7 @@
 				</hbox>
 			</vbox>
 		</vbox>
+		<browser id="sidebar" hidden="true" collapsed="true" style="display: none !important; visibility: collapse !important;" />
 	</vbox>
 
 	<!-- Splitter on the right of sidebar -->
@@ -136,6 +128,7 @@
 	<!-- View->Sidebar toggle -->
 	<menupopup id="menu_viewPopup">
 		<menuitem id="sidebar-menu" type="checkbox" label="&sidebarCmd.label;" accesskey="&sidebarCmd.accesskey;" command="toggleSidebar" key="showHideSidebar" insertafter="viewToolbarsMenu" />
+		<menu id="viewSidebarMenuMenu" removeelement="true" />
 	</menupopup>
 
 	<!-- Scripts go last, because they peek at state to tweak menus -->

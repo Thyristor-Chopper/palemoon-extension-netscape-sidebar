@@ -9,7 +9,7 @@
 // <box> sidebar-box
 //		<splitter> sidebar-panels-splitter
 //			 <box> sidebar-panels-splitter-box*
-//		<sidebarheader> sidebar-title-box
+//		<sidebarheader> sidebar-header
 //			 <menubutton> sidebar-panel-picker*
 //					<menupopup> sidebar-panel-picker-popup
 //		<box> sidebar-panels
@@ -25,6 +25,23 @@
 
 Components.utils.import("resource://gre/modules/Services.jsm");
 
+//////////////////////////////////////////////////////////////
+// New functions for Pale Moon port
+//////////////////////////////////////////////////////////////
+
+function toggleSidebar(commandID, forceOpen) {
+	if(!commandID) {
+		SidebarShowHide();
+		if(!sidebar_is_hidden() && sidebar_is_collapsed()) SidebarExpandCollapse();
+		return;
+	}
+	var sidebarBroadcaster = document.getElementById(commandID);
+	var sidebarURL = sidebarBroadcaster.getAttribute('sidebarurl');
+	for(var panel of sidebarObj.panels.as_array())
+		if(panel.get_url() == sidebarURL)
+			SidebarSelectPanel(panel.header, true, true);
+}
+
 function checkDuplicatePanel(url) {
 	for(var panel of sidebarObj.panels.as_array())
 		if(panel.get_url() == url)
@@ -34,31 +51,46 @@ function checkDuplicatePanel(url) {
 
 const stringBundles = Services.strings.createBundle('chrome://netscapesidebar/locale/sidebar/sidebar.properties');
 Services.obs.addObserver({
-    observe: function(subject, topic, data) {
-        if(!(subject instanceof Ci.nsIDOMWindow)) return;
+	observe: function(subject, topic, data) {
+		if(!(subject instanceof Ci.nsIDOMWindow)) return;
 		if(!subject.wrappedJSObject) return;
 		if(!subject.wrappedJSObject.sidebar) return;
 		
 		if(!subject.wrappedJSObject.sidebar.addPanel)
 			subject.wrappedJSObject.sidebar.addPanel = function addPanel(title, url, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+				title += '';
+				url += '';
+				customize += '';
+				const lcurl = url.toLowerCase();
+				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:')) throw new Error('Script attempted to add sidebar panel from illegal source');
 				if(checkDuplicatePanel(url)) return Services.prompt.alert(subject, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', url));
 				if(!Services.prompt.confirm(subject, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName('addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n'))) return;
+				addSidebarPanel(title, url, customize, false);
 			};
 		if(!subject.wrappedJSObject.sidebar.addPersistentPanel)
 			subject.wrappedJSObject.sidebar.addPersistentPanel = function addPersistentPanel(title, url, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+				title += '';
+				url += '';
+				customize += '';
+				const lcurl = url.toLowerCase();
+				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:')) throw new Error('Script attempted to add sidebar panel from illegal source');
+				if(checkDuplicatePanel(url)) return Services.prompt.alert(subject, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', url));
 				if(!Services.prompt.confirm(subject, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName('addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n') + '\n' + stringBundles.GetStringFromName('persistentPanelWarning'))) return;
+				addSidebarPanel(title, url, customize, true);
 			};
 		if(!subject.wrappedJSObject.sidebar.addRawPanel)
-			subject.wrappedJSObject.sidebar.addRawPanel = function addRawPanel(title, url, customize) {
+			subject.wrappedJSObject.sidebar.addRawPanel = function addRawPanel(title, html, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+				subject.wrappedJSObject.sidebar.addPanel(title, 'data:text/html;base64,' + btoa(html), 'data:text/html;base64,' + btoa(customize));
 			};
 		if(!subject.wrappedJSObject.sidebar.addPersistentRawPanel)
-			subject.wrappedJSObject.sidebar.addPersistentRawPanel = function addPersistentRawPanel(title, url, customize) {
+			subject.wrappedJSObject.sidebar.addPersistentRawPanel = function addPersistentRawPanel(title, html, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+				subject.wrappedJSObject.sidebar.addPersistentPanel(title, 'data:text/html;base64,' + btoa(html), 'data:text/html;base64,' + btoa(customize));
 			};
-    }
+	}
 }, 'content-document-global-created', false);
 
 function GetStringPref(name) {
@@ -73,9 +105,36 @@ function GetIntPref(aPrefName, aDefaultValue) {
 	try {
 		return Services.prefs.getIntPref(aPrefName);
 	} catch(e) {
-		Components.utils.reportError("Couldn't get " + aPrefName + " pref: " + e);
 		return aDefaultValue;
 	}
+}
+
+function addSidebarPanel(title, url, customize, persist) {
+	if(typeof persist != 'boolean') persist = false;
+	var res = RDF.GetResource('urn:sidebar:3rdparty-panel:' + url);
+	
+	var titleLiteral = RDF.GetLiteral(title);
+	var urlLiteral = RDF.GetLiteral(url);
+	if(customize) var customizeLiteral = RDF.GetLiteral(customize);
+	if(persist) var persistLiteral = RDF.GetLiteral(persist.toString());
+	
+	var titleArc = RDF.GetResource(NC + 'title');
+	var contentArc = RDF.GetResource(NC + 'content');
+	if(customize) var customizeArc = RDF.GetResource(NC + 'customize');
+	if(persist) var persistArc = RDF.GetResource(NC + 'persist');
+	
+	sidebarObj.datasource.Assert(res, titleArc, titleLiteral, true);
+	sidebarObj.datasource.Assert(res, contentArc, urlLiteral, true);
+	if(customize) sidebarObj.datasource.Assert(res, customizeArc, customizeLiteral, true);
+	if(persist) sidebarObj.datasource.Assert(res, persistArc, persistLiteral, true);
+	
+	var container = Components.classes['@mozilla.org/rdf/container;1'].createInstance(Components.interfaces.nsIRDFContainer);
+	container.Init(sidebarObj.datasource, sidebarObj.datasource.GetTarget(RDF.GetResource(sidebarObj.resource), RDF.GetResource(NC + 'panel-list'), true));
+	container.AppendElement(res);
+	
+	refresh_all_sidebars();
+	
+	sidebarObj.datasource.QueryInterface(Components.interfaces.nsIRDFRemoteDataSource).Flush();
 }
 
 //////////////////////////////////////////////////////////////
@@ -91,8 +150,8 @@ var gCheckMissingPanels = true;
 
 function setBlank()
 {
-		gTimeoutID = null;
-		gCurFrame.setAttribute('src', 'chrome://netscapesidebar/content/sidebar/PageNotFound.xul');
+	gTimeoutID = null;
+	gCurFrame.setAttribute('src', 'chrome://netscapesidebar/content/sidebar/PageNotFound.xul');
 }
 
 
@@ -841,14 +900,8 @@ function sidebar_overlay_init() {
 
 			// Obtain the pref for limiting the number of tabs in view, defaults to 8.
 			gNumTabsInViewPref = GetIntPref("sidebar.num_tabs_in_view", 8);
-
-			// Show the header for the panels area. Use a splitter if there
-			// is stuff over the panels area.
-			var sidebar_panels_splitter = document.getElementById('sidebar-panels-splitter');
-			if (sidebar_element.firstChild != sidebar_panels_splitter) {
-				debug("Showing the panels splitter");
-				sidebar_panels_splitter.removeAttribute('hidden');
-			}
+			
+			document.getElementById('sidebar-title').setAttribute('value', document.getElementById('sidebar-title-initial').getAttribute('value'));
 		}
 		if (sidebar_is_collapsed()) {
 			sidebarObj.collapsed = true;
@@ -1235,19 +1288,16 @@ function SidebarExpandCollapse() {
 
 // sidebar_is_hidden() - Helper function for SidebarShowHide().
 function sidebar_is_hidden() {
-	var sidebar_title = document.getElementById('sidebar-title-box');
+	var sidebar_title = document.getElementById('sidebar-header');
 	var sidebar_box = document.getElementById('sidebar-box');
-	return sidebar_box.getAttribute('hidden') == 'true'
-				 || sidebar_title.getAttribute('hidden') == 'true';
+	return sidebar_box.getAttribute('hidden') == 'true' || sidebar_title.getAttribute('hidden') == 'true';
 }
 
 // Show/Hide the entire sidebar.
 // Invoked by the "View / Sidebar" menu option.
 function SidebarShowHide() {
 	var sidebar_box = document.getElementById('sidebar-box');
-	var title_box = document.getElementById('sidebar-title-box');
-	var sidebar_panels_splitter = document.getElementById('sidebar-panels-splitter');
-	var sidebar_panels_splitter_box = document.getElementById('sidebar-panels-splitter-box');
+	var title_box = document.getElementById('sidebar-header');
 	var sidebar_splitter = document.getElementById('sidebar-splitter');
 	var sidebar_menu_item = document.getElementById('sidebar-menu');
 	var tabs_menu = document.getElementById('sidebar-panel-picker');
@@ -1257,42 +1307,27 @@ function SidebarShowHide() {
 
 		// for older profiles:
 		sidebar_box.setAttribute('hidden', 'false');
-		sidebar_panels_splitter_box.setAttribute('hidden', 'false');
 
 		sidebar_box.removeAttribute('collapsed');
 		if (sidebar_splitter.getAttribute('state') == 'collapsed')
 			sidebar_splitter.removeAttribute('state');
 		title_box.removeAttribute('hidden');
-		sidebar_panels_splitter_box.removeAttribute('collapsed');
 		sidebar_splitter.setAttribute('hidden', 'false');
-		if (sidebar_box.firstChild != sidebar_panels_splitter) {
-			debug("Showing the panels splitter");
-			sidebar_panels_splitter.removeAttribute('hidden');
-			if (sidebar_panels_splitter.getAttribute('state') == 'collapsed')
-				sidebar_panels_splitter.removeAttribute('state');
-		}
 		sidebar_overlay_init();
 		sidebar_menu_item.setAttribute('checked', 'true');
 		tabs_menu.removeAttribute('hidden');
 		SidebarSetButtonOpen(true);
 	} else {
 		debug("Hiding the sidebar");
-		var hide_everything = sidebar_panels_splitter.getAttribute('hidden') == 'true';
-		if (hide_everything) {
-			debug("Hide everything");
-			sidebar_box.setAttribute('collapsed', 'true');
-			sidebar_splitter.setAttribute('hidden', 'true');
-		} else {
-			sidebar_panels_splitter.setAttribute('hidden', 'true');
-		}
+		sidebar_box.setAttribute('collapsed', 'true');
+		sidebar_splitter.setAttribute('hidden', 'true');
 		title_box.setAttribute('hidden', 'true');
-		sidebar_panels_splitter_box.setAttribute('collapsed', 'true');
 		sidebar_menu_item.setAttribute('checked', 'false');
 		tabs_menu.setAttribute('hidden', 'true');
 		SidebarSetButtonOpen(false);
 	}
 	// Immediately save persistent values
-	document.persist('sidebar-title-box', 'hidden');
+	document.persist('sidebar-header', 'hidden');
 	PersistWidth();
 	window.content.focus();
 }
@@ -1575,14 +1610,6 @@ function SidebarCleanUpExpandCollapse() {
 	setTimeout(() => sidebarObj.panels.refresh(), 100);
 }
 
-function PersistHeight() {
-	// XXX Mini hack. Persist isn't working too well. Force the persist,
-	// but wait until the last drag has been committed.
-	// May want to do something smarter here like only force it if the
-	// height has really changed.
-	setTimeout(Persist, 100, "sidebar-panels-splitter-box", "height");
-}
-
 function PersistWidth() {
 	// XXX Mini hack. Persist isn't working too well. Force the persist,
 	// but wait until the width change has commited. Also see bug 16516.
@@ -1616,9 +1643,8 @@ function SidebarSetButtonOpen(aSidebarNowOpen)
 		pt.setAttribute("prefixopen", aSidebarNowOpen);
 
 		// set tooltip for toolbar icon
-		var header = document.getElementById("sidebar-title-box");
-		var tooltip = header.getAttribute(aSidebarNowOpen ?
-									"tooltipclose" : "tooltipopen");
+		var header = document.getElementById("sidebar-header");
+		var tooltip = header.getAttribute(aSidebarNowOpen ? "tooltipclose" : "tooltipopen");
 		pt.setAttribute("prefixtooltip", tooltip);
 	}
 }
@@ -1632,13 +1658,10 @@ function SidebarInitContextMenu(aMenu, aPopupNode)
 
 	// the current panel can be reloaded, but other panels are not showing
 	// any content, so we only allow you to switch to other panels
-	if (panel.is_selected())
-	{
+	if (panel.is_selected()) {
 		switchItem.setAttribute("collapsed", "true");
 		reloadItem.removeAttribute("disabled");
-	}
-	else
-	{
+	} else {
 		switchItem.removeAttribute("collapsed");
 		reloadItem.setAttribute("disabled", "true");
 	}
