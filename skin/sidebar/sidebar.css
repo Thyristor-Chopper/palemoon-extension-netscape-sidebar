@@ -104,3 +104,29 @@
 .tab-back {
   list-style-image: url("chrome://global/skin/arrow/arrow-dn.gif");
 }
+
+.bookmark-item#toggle-sidebar-button .toolbarbutton-text, toolbar:not(.toolbar-primary) #toggle-sidebar-button .toolbarbutton-text {
+	display: none !important;
+}
+
+.bookmark-item#toggle-sidebar-button .toolbarbutton-icon, toolbar:not(.toolbar-primary) #toggle-sidebar-button .toolbarbutton-icon {
+	padding: 0 !important;
+}
+
+.bookmark-item#toggle-sidebar-button, toolbar:not(.toolbar-primary) #toggle-sidebar-button {
+	padding: 3px !important;
+	min-width: 0 !important;
+}
+
+#toggle-sidebar-button {
+	list-style-image: url('chrome://netscapesidebar/skin/sidebar/open-sidebar.png');
+	-moz-image-region: initial;
+}
+
+#toggle-sidebar-button[sidebaropen="true"] {
+	list-style-image: url('chrome://netscapesidebar/skin/sidebar/close-sidebar.png');
+}
+
+#sidebar-panel-picker {
+	font-weight: normal;
+}

@@ -38,6 +38,10 @@
 			<menuitem id="customize-ctx-item" label="&sidebar.customize.label;" accesskey="&sidebar.customize.accesskey;" oncommand="SidebarCustomize();" />
 		</menupopup>
 	</popupset>
+	
+	<toolbarpalette id="BrowserToolbarPalette">
+		<toolbarbutton id="toggle-sidebar-button" class="toolbarbutton-1 chromeclass-toolbar-additional" oncommand="if(!sidebar_is_hidden() &amp;&amp; sidebar_is_collapsed()) SidebarExpandCollapse(); else SidebarShowHide();" label="&sidebar.togglesidebar.label;" tooltiptext="" removable="true" />
+	</toolbarpalette>
 
 	<!-- Overlay the sidebar panels -->
 	<vbox id="sidebar-box" hidden="true" persist="hidden width collapsed">

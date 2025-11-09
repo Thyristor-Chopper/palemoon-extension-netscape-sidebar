@@ -1,0 +1,4 @@
+#toggle-sidebar-button {
+	list-style-image: url('chrome://netscapesidebar/skin/sidebar/open-sidebar.png');
+	-moz-image-region: initial;
+}

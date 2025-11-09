@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+
+<?xml-stylesheet href="chrome://netscapesidebar/skin/customize-toolbar.css" type="text/css"?>
+
+<!DOCTYPE overlay>
+
+<overlay id="customize-toolbar-overlay"></overlay>

@@ -902,6 +902,7 @@ function sidebar_overlay_init() {
 			gNumTabsInViewPref = GetIntPref("sidebar.num_tabs_in_view", 8);
 			
 			document.getElementById('sidebar-title').setAttribute('value', document.getElementById('sidebar-title-initial').getAttribute('value'));
+			SidebarSetButtonOpen(!sidebar_is_collapsed() && !sidebar_is_hidden());
 		}
 		if (sidebar_is_collapsed()) {
 			sidebarObj.collapsed = true;
@@ -1264,8 +1265,7 @@ function BrowseMorePanels()
 
 function sidebar_is_collapsed() {
 	var sidebar_splitter = document.getElementById('sidebar-splitter');
-	return (sidebar_splitter &&
-					sidebar_splitter.getAttribute('state') == 'collapsed');
+	return (sidebar_splitter && sidebar_splitter.getAttribute('state') == 'collapsed');
 }
 
 function SidebarExpandCollapse() {
@@ -1608,6 +1608,7 @@ function SidebarCleanUpExpandCollapse() {
 
 	setTimeout(Persist, 100, "sidebar-box", "collapsed");
 	setTimeout(() => sidebarObj.panels.refresh(), 100);
+	setTimeout(() => SidebarSetButtonOpen(!sidebar_is_hidden() && !sidebar_is_collapsed()), 100);
 }
 
 function PersistWidth() {
@@ -1637,15 +1638,13 @@ function SidebarFinishClick() {
 
 function SidebarSetButtonOpen(aSidebarNowOpen)
 {
-	// change state so toolbar icon can be updated
-	var pt = document.getElementById("PersonalToolbar");
-	if (pt) {
-		pt.setAttribute("prefixopen", aSidebarNowOpen);
-
-		// set tooltip for toolbar icon
-		var header = document.getElementById("sidebar-header");
-		var tooltip = header.getAttribute(aSidebarNowOpen ? "tooltipclose" : "tooltipopen");
-		pt.setAttribute("prefixtooltip", tooltip);
+	var tb = document.getElementById('toggle-sidebar-button');
+	if(aSidebarNowOpen) {
+		tb.setAttribute('sidebaropen', 'true');
+		tb.setAttribute('tooltiptext', stringBundles.GetStringFromName('closeSidebarTooltip'));
+	} else {
+		tb.removeAttribute('sidebaropen');
+		tb.setAttribute('tooltiptext', stringBundles.GetStringFromName('openSidebarTooltip'));
 	}
 }
 
