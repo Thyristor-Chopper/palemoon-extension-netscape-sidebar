@@ -4,8 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // the rdf service
-var RDF = Components.classes["@mozilla.org/rdf/rdf-service;"]
-                    .getService(Components.interfaces.nsIRDFService);
+var RDF = Components.classes["@mozilla.org/rdf/rdf-service;1"].getService(Components.interfaces.nsIRDFService);
 
 var NC = "http://home.netscape.com/NC-rdf#";
 
@@ -14,30 +13,30 @@ var customizeObj = new Object;
 
 function Init()
 {
-  customizeObj.id = window.arguments[0];
-  customizeObj.url = window.arguments[1];
-  sidebarObj.datasource_uri = window.arguments[2];
-  sidebarObj.resource = window.arguments[3];
+	customizeObj.id = window.arguments[0];
+	customizeObj.url = window.arguments[1];
+	sidebarObj.datasource_uri = window.arguments[2];
+	sidebarObj.resource = window.arguments[3];
 
-  sidebarObj.datasource = RDF.GetDataSource(sidebarObj.datasource_uri);
+	sidebarObj.datasource = RDF.GetDataSource(sidebarObj.datasource_uri);
 
-  var customize_frame = document.getElementById('customize_frame');
-  customize_frame.setAttribute('src', customizeObj.url);
+	var customize_frame = document.getElementById('customize_frame');
+	customize_frame.setAttribute('src', customizeObj.url);
 }
 
 // Use an assertion to pass a "refresh" event to all the sidebars.
 // They use observers to watch for this assertion (in sidebarOverlay.js).
 function RefreshPanel() {
-  var sb_resource = RDF.GetResource(sidebarObj.resource);
-  var refresh_resource = RDF.GetResource(NC + "refresh_panel");
-  var panel_resource = RDF.GetLiteral(customizeObj.id);
+	var sb_resource = RDF.GetResource(sidebarObj.resource);
+	var refresh_resource = RDF.GetResource(NC + "refresh_panel");
+	var panel_resource = RDF.GetLiteral(customizeObj.id);
 
-  sidebarObj.datasource.Assert(sb_resource,
-                               refresh_resource,
-                               panel_resource,
-                               true);
-  sidebarObj.datasource.Unassert(sb_resource,
-                                 refresh_resource,
-                                 panel_resource);
+	sidebarObj.datasource.Assert(sb_resource,
+															 refresh_resource,
+															 panel_resource,
+															 true);
+	sidebarObj.datasource.Unassert(sb_resource,
+																 refresh_resource,
+																 panel_resource);
 }
 

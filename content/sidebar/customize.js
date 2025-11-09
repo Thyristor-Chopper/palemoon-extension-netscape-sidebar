@@ -367,6 +367,7 @@ function add_node_to_current_list(registry, service)
 	// Copy over the attributes
 	item.setAttribute('id', service.Value);
 	cell.setAttribute('label', option_title);
+	if(option_customize) item.setAttribute('customize', option_customize);
 
 	// Add it to the current panels tree
 	item.appendChild(row);
@@ -625,8 +626,8 @@ function persist_dialog_dimensions() {
 	// Get the current window position/size.
 	var x = window.screenX;
 	var y = window.screenY;
-	var h = window.outerHeight;
-	var w = window.outerWidth;
+	var h = window.innerHeight;
+	var w = window.innerWidth;
 
 	// Store these into the window attributes (for persistence).
 	var win = document.getElementById( "main-window" );
