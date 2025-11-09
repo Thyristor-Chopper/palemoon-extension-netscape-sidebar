@@ -881,17 +881,19 @@ function sidebar_overlay_init() {
 	// Initialize the display
 	var sidebar_element = document.getElementById('sidebar-box');
 	var sidebar_menuitem = document.getElementById('sidebar-menu');
+	var sidebar_splitter = document.getElementById('sidebar-splitter');
 	if (sidebar_is_hidden()) {
 		if (sidebar_menuitem) {
 			sidebar_menuitem.setAttribute('checked', 'false');
 		}
+		if (sidebar_splitter)
+			sidebar_splitter.setAttribute('hidden', 'true');
 	} else {
 		if (sidebar_menuitem) {
 			sidebar_menuitem.setAttribute('checked', 'true');
 		}
 
 		// for old profiles that don't persist the hidden attribute when splitter is not hidden.
-		var sidebar_splitter = document.getElementById('sidebar-splitter')
 		if (sidebar_splitter)
 			sidebar_splitter.setAttribute('hidden', 'false');
 
@@ -1332,6 +1334,7 @@ function SidebarShowHide() {
 	}
 	// Immediately save persistent values
 	document.persist('sidebar-header', 'hidden');
+	document.persist('sidebar-splitter', 'hidden');
 	PersistWidth();
 	window.content.focus();
 }
@@ -1643,6 +1646,7 @@ function SidebarFinishClick() {
 function SidebarSetButtonOpen(aSidebarNowOpen)
 {
 	var tb = document.getElementById('toggle-sidebar-button');
+	if(!tb) return;
 	if(aSidebarNowOpen) {
 		tb.setAttribute('sidebaropen', 'true');
 		tb.setAttribute('tooltiptext', stringBundles.GetStringFromName('closeSidebarTooltip'));
