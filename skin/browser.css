@@ -1,0 +1,4 @@
+browser#sidebar {
+	display: none !important;
+	visibility: collapse !important;
+}

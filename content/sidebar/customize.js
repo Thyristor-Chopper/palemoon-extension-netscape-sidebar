@@ -431,7 +431,7 @@ function BrowseMorePanels()
 	var browser_url = "chrome://navigator/content/navigator.xul";
 	var locale;
 	try {
-		url = Services.prefs.getCharPref("sidebar.customize.more_panels.url");
+		url = 'https://edmullen.net/mozilla/moz_sidebar.php';
 		var temp = Services.prefs.getCharPref("browser.chromeURL");
 		if (temp)
 			browser_url = temp;

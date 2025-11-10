@@ -31,12 +31,7 @@ function RefreshPanel() {
 	var refresh_resource = RDF.GetResource(NC + "refresh_panel");
 	var panel_resource = RDF.GetLiteral(customizeObj.id);
 
-	sidebarObj.datasource.Assert(sb_resource,
-															 refresh_resource,
-															 panel_resource,
-															 true);
-	sidebarObj.datasource.Unassert(sb_resource,
-																 refresh_resource,
-																 panel_resource);
+	sidebarObj.datasource.Assert(sb_resource, refresh_resource, panel_resource, true);
+	sidebarObj.datasource.Unassert(sb_resource, refresh_resource, panel_resource);
 }
 

@@ -11,6 +11,7 @@
 
 <?xml-stylesheet href="chrome://netscapesidebar/content/sidebar/sidebarOverlay.css" type="text/css"?>
 <?xml-stylesheet href="chrome://netscapesidebar/skin/sidebar/sidebar.css" type="text/css"?>
+<?xml-stylesheet href="chrome://netscapesidebar/skin/browser.css" type="text/css"?>
 <?xml-stylesheet href="chrome://browser/skin/sidebar/sidebar.css" type="text/css"?>
 
 <!DOCTYPE overlay [
@@ -72,7 +73,7 @@
 				</menupopup>
 			</toolbarbutton>
 		</sidebarheader>
-		<vbox id="sidebar-panels-splitter-box" flex="1" persist="collapsed">
+		<vbox id="sidebar-panels-splitter-box" flex="1" persist="collapsed" insertbefore="sidebar">
 			<vbox id="sidebar-panels" datasources="rdf:null" ref="urn:sidebar:current-panel-list" last-selected-panel="urn:sidebar:panel:bookmarks" persist="last-selected-panel height collapsed" flex="1" onclick="return contentAreaClick(event);">
 				<template id="sidebar-template">
 					<rule>
@@ -101,8 +102,8 @@
 									<spacer flex="100%" />
 								</vbox>
 								<notificationbox flex="1" collapsed="true" class="sidebar-notificationbox browser-notificationbox">
-									<browser flex="1" class="browser-sidebar" src="about:blank" hidden="true" collapsed="true" content="?content" disablehistory="true" />
-									<browser flex="1" class="browser-sidebar" src="about:blank" hidden="true" collapsed="true" content="?content" type="content" context="contentAreaContextMenu" disablehistory="true" tooltip="aHTMLTooltip" />
+									<browser flex="1" class="browser-sidebar" src="about:blank" hidden="true" collapsed="true" content="?content" />
+									<browser flex="1" class="browser-sidebar" src="about:blank" hidden="true" collapsed="true" content="?content" type="content" context="contentAreaContextMenu" tooltip="aHTMLTooltip" />
 								</notificationbox>
 							</vbox>
 						</action>
