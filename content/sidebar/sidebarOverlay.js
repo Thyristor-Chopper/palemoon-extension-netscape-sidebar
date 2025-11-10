@@ -63,6 +63,9 @@ Services.obs.addObserver({
 		if(!subject.wrappedJSObject.sidebar.addPanel)
 			subject.wrappedJSObject.sidebar.addPanel = function addPanel(title, url, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+				title = title || '';
+				url = url || '';
+				customize = customize || '';
 				title += '';
 				url += '';
 				customize += '';
@@ -75,6 +78,9 @@ Services.obs.addObserver({
 		if(!subject.wrappedJSObject.sidebar.addPersistentPanel)
 			subject.wrappedJSObject.sidebar.addPersistentPanel = function addPersistentPanel(title, url, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+				title = title || '';
+				url = url || '';
+				customize = customize || '';
 				title += '';
 				url += '';
 				customize += '';
