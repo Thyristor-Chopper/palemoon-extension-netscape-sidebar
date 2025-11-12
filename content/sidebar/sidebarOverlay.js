@@ -55,10 +55,12 @@ function encodeHTML(html) {
 
 const stringBundles = Services.strings.createBundle('chrome://netscapesidebar/locale/sidebar/sidebar.properties');
 Services.obs.addObserver({
-	observe: function(subject, topic, data) {
+	observe(subject, topic, data) {
 		if(!(subject instanceof Ci.nsIDOMWindow)) return;
 		if(!subject.wrappedJSObject) return;
-		if(!subject.wrappedJSObject.sidebar) return;
+		
+		if(!subject.wrappedJSObject.sidebar)
+			subject.wrappedJSObject.sidebar = {};
 		
 		if(!subject.wrappedJSObject.sidebar.addPanel)
 			subject.wrappedJSObject.sidebar.addPanel = function addPanel(title, url, customize) {
@@ -70,11 +72,12 @@ Services.obs.addObserver({
 				url += '';
 				customize += '';
 				const lcurl = url.toLowerCase();
-				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:')) throw new Error('Script attempted to add sidebar panel from illegal source');
+				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:') && !lcurl.startsWith('file:')) throw new Error('Script attempted to add sidebar panel from illegal source');
 				if(checkDuplicatePanel(url)) return Services.prompt.alert(subject, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', lcurl.startsWith('data:') ? title : url));
 				if(!Services.prompt.confirm(subject, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName(lcurl.startsWith('data:') ? 'addRawPanelConfirmMessage' : 'addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n'))) return;
 				addSidebarPanel(title, url, customize, false);
 			};
+		
 		if(!subject.wrappedJSObject.sidebar.addPersistentPanel)
 			subject.wrappedJSObject.sidebar.addPersistentPanel = function addPersistentPanel(title, url, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
@@ -85,20 +88,22 @@ Services.obs.addObserver({
 				url += '';
 				customize += '';
 				const lcurl = url.toLowerCase();
-				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:')) throw new Error('Script attempted to add sidebar panel from illegal source');
+				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:') && !lcurl.startsWith('file:')) throw new Error('Script attempted to add sidebar panel from illegal source');
 				if(checkDuplicatePanel(url)) return Services.prompt.alert(subject, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', lcurl.startsWith('data:') ? title : url));
 				if(!Services.prompt.confirm(subject, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName(lcurl.startsWith('data:') ? 'addRawPanelConfirmMessage' : 'addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n') + '\n' + stringBundles.GetStringFromName('persistentPanelWarning'))) return;
 				addSidebarPanel(title, url, customize, true);
 			};
+		
 		if(!subject.wrappedJSObject.sidebar.addRawPanel)
 			subject.wrappedJSObject.sidebar.addRawPanel = function addRawPanel(title, html, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
-				subject.wrappedJSObject.sidebar.addPanel(title, 'data:text/html;base64,' + encodeHTML(html), 'data:text/html;base64,' + encodeHTML(customize));
+				subject.wrappedJSObject.sidebar.addPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
 			};
+		
 		if(!subject.wrappedJSObject.sidebar.addPersistentRawPanel)
 			subject.wrappedJSObject.sidebar.addPersistentRawPanel = function addPersistentRawPanel(title, html, customize) {
 				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
-				subject.wrappedJSObject.sidebar.addPersistentPanel(title, 'data:text/html;base64,' + encodeHTML(html), 'data:text/html;base64,' + encodeHTML(customize));
+				subject.wrappedJSObject.sidebar.addPersistentPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
 			};
 	}
 }, 'content-document-global-created', false);
@@ -151,15 +156,13 @@ function addSidebarPanel(title, url, customize, persist) {
 // Global variables
 //////////////////////////////////////////////////////////////
 
-
 var gCurFrame;
 var gTimeoutID = null;
 var gMustInit = true;
 var gAboutToUncollapse = false;
 var gCheckMissingPanels = true;
 
-function setBlank()
-{
+function setBlank() {
 	gTimeoutID = null;
 	gCurFrame.setAttribute('src', 'chrome://netscapesidebar/content/sidebar/PageNotFound.xul');
 }
@@ -194,213 +197,178 @@ sidebarObj.never_built = true;
 // This class does not make any changes to the sidebar rdf datasource.
 //////////////////////////////////////////////////////////////////////
 
-function sbPanelList(container_id)
-{
+function sbPanelList(container_id) {
 	debug("sbPanelList("+container_id+")");
 	this.node = document.getElementById(container_id);
 	this.childNodes = this.node.childNodes;
 	this.initialized = false; // set after first display of tabs
 }
 
-sbPanelList.prototype.get_panel_from_id =
-function (id)
-{
+sbPanelList.prototype.get_panel_from_id = function get_panel_from_id(id) {
 	debug("get_panel_from_id(" + id + ")");
 	var index = 0;
 	var header = null;
-	if (id && id != '') {
-		for (var ii=2; ii < this.node.childNodes.length; ii += 2) {
+	if(id && id != '') {
+		for(var ii=2; ii < this.node.childNodes.length; ii += 2) {
 			header = this.node.childNodes.item(ii);
-			if (header.getAttribute('id') == id) {
+			if(header.getAttribute('id') == id) {
 				debug("get_panel_from_id: Found at index, " + ii);
 				index = ii;
 				break;
 			}
 		}
 	}
-	if (index > 0) {
+	if(index > 0) {
 		return new sbPanel(id, header, index);
 	} else {
 		return null;
 	}
-}
+};
 
-sbPanelList.prototype.get_panel_from_header_node =
-function (node)
-{
+sbPanelList.prototype.get_panel_from_header_node = function get_panel_from_header_node(node) {
 	return this.get_panel_from_id(node.getAttribute('id'));
-}
+};
 
-sbPanelList.prototype.get_panel_from_header_index =
-function (index)
-{
+sbPanelList.prototype.get_panel_from_header_index = function get_panel_from_header_index(index) {
 	return this.get_panel_from_header_node(this.node.childNodes.item(index));
-}
+};
 
-sbPanelList.prototype.find_first =
-function (panels)
-{
+sbPanelList.prototype.find_first = function find_first(panels) {
 	debug("pick_default_panel: length=" + this.node.childNodes.length);
-	for (var ii = 2; ii < this.node.childNodes.length; ii += 2) {
+	for(var ii=2; ii<this.node.childNodes.length; ii+=2) {
 		var panel = this.get_panel_from_header_index(ii);
-		if (!panel.is_excluded() && panel.is_in_view()) {
+		if(!panel.is_excluded() && panel.is_in_view())
 			return panel;
-		}
 	}
 	return null;
-}
+};
 
-sbPanelList.prototype.find_last =
-function (panels)
-{
+sbPanelList.prototype.find_last = function find_last(panels) {
 	debug("pick_default_panel: length=" + this.node.childNodes.length);
-	for (var ii=(this.node.childNodes.length - 1); ii >= 2; ii -= 2) {
+	for(var ii=(this.node.childNodes.length-1); ii>=2; ii-=2) {
 		var panel = this.get_panel_from_header_index(ii);
-		if (!panel.is_excluded() && panel.is_in_view()) {
+		if(!panel.is_excluded() && panel.is_in_view())
 			return panel;
-		}
 	}
 	return null;
-}
+};
 
-sbPanelList.prototype.visible_panels_exist =
-function ()
-{
+sbPanelList.prototype.visible_panels_exist = function visible_panels_exist() {
 	var i;
 	var panels = this.node.childNodes;
-	for (i = 2; i < panels.length; i += 2)
-	{
-		if (!panels.item(i).hidden)
+	for(i=2; i<panels.length; i+=2) {
+		if(!panels.item(i).hidden)
 			return true;
 	}
 	return false;
-}
+};
 
-sbPanelList.prototype.num_panels_included =
-function ()
-{
+sbPanelList.prototype.num_panels_included = function num_panels_included() {
 	var count = 0;
 	var panels = this.node.childNodes;
-	for (var i = 2; i < panels.length; i += 2)
-	{
+	for(var i=2; i<panels.length; i+=2) {
 		var curr = this.get_panel_from_header_index(i);
-		if (!curr.is_excluded())
+		if(!curr.is_excluded())
 			count++;
 	}
 	return count;
-}
+};
 
-sbPanelList.prototype.num_panels_in_view =
-function ()
-{
+sbPanelList.prototype.num_panels_in_view = function num_panels_in_view() {
 	var count = 0;
 	var panels = this.node.childNodes;
-	for (var i = 2; i < panels.length; i += 2)
-	{
+	for(var i=2; i<panels.length; i+=2) {
 		var curr = this.get_panel_from_header_index(i);
-		if (curr.is_in_view())
+		if(curr.is_in_view())
 			count++;
 	}
 	return count;
-}
+};
 
-sbPanelList.prototype.as_array =
-function ()
-{
+sbPanelList.prototype.as_array = function as_array() {
 	var ret = [];
 	var panels = this.node.childNodes;
-	for (var i = 2; i < panels.length; i += 2)
-	{
+	for(var i=2; i<panels.length; i+=2)
 		ret.push(this.get_panel_from_header_index(i));
-	}
 	return ret;
-}
+};
 
-sbPanelList.prototype.select =
-function (panel, force_reload)
-{
-	if (!force_reload && panel.is_selected()) {
+sbPanelList.prototype.select = function select(panel, force_reload) {
+	if(!force_reload && panel.is_selected())
 		return;
-	}
 	// select(): Open this panel and possibly reload it.
-	if (this.node.getAttribute('last-selected-panel') != panel.id) {
+	if(this.node.getAttribute('last-selected-panel') != panel.id) {
 		// "last-selected-panel" is used as a global variable.
 		// this.update() will reference "last-selected-panel".
 		// This way the value can be persisted in xulstore.json.
 		this.node.setAttribute('last-selected-panel', panel.id);
 	}
 	this.update(force_reload);
-}
+};
 
-sbPanelList.prototype.exclude =
-function (panel)
-{
-	if (this.node.getAttribute('last-selected-panel') == panel.id) {
+sbPanelList.prototype.exclude = function exclude(panel) {
+	if(this.node.getAttribute('last-selected-panel') == panel.id) {
 		this.select_default_panel();
 	} else {
 		this.update(false);
 	}
-}
+};
 
 
-sbPanelList.prototype.select_default_panel =
-function ()
-{
+sbPanelList.prototype.select_default_panel = function select_default_panel() {
 	var default_panel = null
 
 	// First, check the XUL for the "defaultpanel" attribute of "sidebar-box".
 	var sidebar_container = document.getElementById('sidebar-box');
 	var content_default_id = sidebar_container.getAttribute('defaultpanel');
-	if (content_default_id != '') {
+	if(content_default_id != '') {
 		var content = sidebarObj.panels.get_panel_from_id(content_default_id);
-		if (content && !content.is_excluded() && content.is_in_view()) {
+		if(content && !content.is_excluded() && content.is_in_view()) {
 			default_panel = content;
 		}
 	}
 
 	// Second, try to use the panel persisted in 'last-selected-panel'.
-	if (!default_panel) {
+	if(!default_panel) {
 		var last_selected_id = this.node.getAttribute('last-selected-panel');
-		if (last_selected_id != '') {
+		if(last_selected_id != '') {
 			var last = sidebarObj.panels.get_panel_from_id(last_selected_id);
-			if (last && !last.is_excluded() && last.is_in_view()) {
+			if(last && !last.is_excluded() && last.is_in_view()) {
 				default_panel = last;
 			}
 		}
 	}
 
 	// Finally, just use the last one in the list.
-	if (!default_panel) {
+	if(!default_panel) {
 		default_panel = this.find_last();
 	}
 
-	if (default_panel) {
+	if(default_panel) {
 		this.node.setAttribute('last-selected-panel', default_panel.id);
 	}
 	this.update(false);
-}
+};
 
-sbPanelList.prototype.refresh =
-function ()
-{
+sbPanelList.prototype.refresh = function refresh() {
 	var last_selected_id = this.node.getAttribute('last-selected-panel');
 	var last_selected = sidebarObj.panels.get_panel_from_id(last_selected_id);
-	if (last_selected && last_selected.is_selected()) {
+	if(last_selected && last_selected.is_selected()) {
 		// The desired panel is already selected
 		this.update(false);
 	} else {
 		this.select_default_panel();
 	}
-}
+};
 
 // panel_loader(): called from a timer that is set in sbPanelList.update()
 // Removes the "Loading..." screen when the panel has finished loading.
 function panel_loader() {
 	debug("panel_loader()");
 
-	if (gTimeoutID != null) {
-			clearTimeout(gTimeoutID);
-			gTimeoutID = null;
+	if(gTimeoutID != null) {
+		clearTimeout(gTimeoutID);
+		gTimeoutID = null;
 	}
 
 	this.removeEventListener("load", panel_loader, true);
@@ -414,11 +382,11 @@ function panel_loader() {
 	// hide the load area
 	this.parentNode.parentNode.firstChild.setAttribute('hidden', 'true');
 
-	if (this.hasAttribute('focusOnLoad')) {
+	if(this.hasAttribute('focusOnLoad')) {
 		var elementToFocus = this.contentDocument.documentElement.getAttribute('elementtofocus');
-		if (elementToFocus) {
+		if(elementToFocus) {
 			var element = this.contentDocument.getElementById(elementToFocus);
-			if (element)
+			if(element)
 				element.focus();
 			else
 				dump(elementToFocus + ' element was not found to focus!\n');
@@ -428,23 +396,21 @@ function panel_loader() {
 		this.removeAttribute('focusOnLoad');
 	}
 }
-sbPanelList.prototype.update =
-function (force_reload)
-{
+sbPanelList.prototype.update = function update(force_reload) {
 	// This function requires that the attribute 'last-selected-panel'
 	// holds the id of a non-excluded panel. If it doesn't, no panel will
 	// be selected. The attribute is used instead of a function
 	// parameter to allow the value to be persisted in xulstore.json.
 	var selected_id = this.node.getAttribute('last-selected-panel');
 
-	if (sidebar_is_collapsed()) {
+	if(sidebar_is_collapsed()) {
 		sidebarObj.collapsed = true;
 	} else {
 		sidebarObj.collapsed = false;
 	}
 
 	var num_included = sidebarObj.panels.num_panels_included();
-	if (num_included > gNumTabsInViewPref)
+	if(num_included > gNumTabsInViewPref)
 		document.getElementById("nav-buttons-box").hidden = false;
 	else
 		document.getElementById("nav-buttons-box").hidden = true;
@@ -455,50 +421,42 @@ function (force_reload)
 	var last_header = 0;
 	var num_in_view = 0;
 	debug("this.initialized: " + this.initialized);
-	for (var ii=2; ii < this.node.childNodes.length; ii += 2) {
+	for(var ii=2; ii<this.node.childNodes.length; ii+=2) {
 		var header = this.node.childNodes.item(ii);
 		var content = this.node.childNodes.item(ii+1);
 		var id = header.getAttribute('id');
 		var panel = new sbPanel(id, header, ii);
 		var excluded = panel.is_excluded();
 		var in_view = false;
-		if (!this.initialized)
-		{
-			if (num_in_view < gNumTabsInViewPref)
+		if(!this.initialized) {
+			if(num_in_view < gNumTabsInViewPref)
+				in_view = true;
+		} else {
+			if(header.getAttribute("in-view") == "true")
 				in_view = true;
 		}
-		else
-		{
-			if (header.getAttribute("in-view") == "true")
-				in_view = true;
-		}
-		if (excluded || !in_view)
-		{
-			debug("item("+ii/2+") excluded: " + excluded +
-													" in view: " + in_view);
+		if(excluded || !in_view) {
+			debug("item("+ii/2+") excluded: " + excluded + " in view: " + in_view);
 			header.setAttribute('hidden','true');
 			content.setAttribute('hidden','true');
-			if (!in_view)
-			{
+			if(!in_view) {
 				header.setAttribute("in-view", false);
 				header.removeAttribute("top-panel");
 				header.removeAttribute("last-panel");
 			}
 		} else {
 			// only set if in view
-			if (!this.initialized || (num_in_view < gNumTabsInViewPref))
+			if(!this.initialized || (num_in_view < gNumTabsInViewPref))
 				last_header = header;
 			header.removeAttribute('last-panel');
 			// only set if in view
-			if (!have_set_top &&
-					(!this.initialized || (header.getAttribute("in-view") == "true")))
-			{
+			if(!have_set_top && (!this.initialized || header.getAttribute("in-view") == "true")) {
 				header.setAttribute('top-panel','true');
 				have_set_top = 1;
 			} else {
 				header.removeAttribute('top-panel');
 			}
-			if (!have_set_after_selected && is_after_selected) {
+			if(!have_set_after_selected && is_after_selected) {
 				header.setAttribute('first-panel-after-selected','true');
 				have_set_after_selected = 1
 			} else {
@@ -512,10 +470,7 @@ function (force_reload)
 			//		 has been selected yet
 			//		 -or-
 			// (b) when we have reached the last tab we are about to display
-			if ( ((num_in_view == num_included) ||
-						(num_in_view == gNumTabsInViewPref)) &&
-					!is_after_selected )
-			{
+			if((num_in_view == num_included || num_in_view == gNumTabsInViewPref) && !is_after_selected) {
 				selected_id = id;
 				this.node.setAttribute('last-selected-panel', id);
 			}
@@ -525,15 +480,15 @@ function (force_reload)
 			var notificationbox = iframe.parentNode;
 			var load_state;
 
-			if (selected_id == id) {
+			if(selected_id == id) {
 				is_after_selected = 1
 				debug("item("+ii/2+") selected");
 				header.setAttribute('selected', 'true');
 				content.removeAttribute('hidden');
 				content.removeAttribute('collapsed');
 
-				if (sidebarObj.collapsed && panel.is_sandboxed()) {
-					if (!panel.is_persistent()) {
+				if(sidebarObj.collapsed && panel.is_sandboxed()) {
+					if(!panel.is_persistent()) {
 						debug("		set src=about:blank");
 						iframe.setAttribute('src', 'about:blank');
 					}
@@ -542,11 +497,11 @@ function (force_reload)
 					var src = iframe.getAttribute('src');
 					// either we have been requested to force_reload or the
 					// panel src has changed so we must restore the original src
-					if (force_reload || (saved_src != src)) {
+					if(force_reload || (saved_src != src)) {
 						debug("		set src="+saved_src);
 						iframe.setAttribute('src', saved_src);
 
-						if (gTimeoutID != null)
+						if(gTimeoutID != null)
 							clearTimeout(gTimeoutID);
 
 						gCurFrame = iframe;
@@ -555,11 +510,11 @@ function (force_reload)
 				}
 
 				load_state = content.getAttribute('loadstate');
-				if (load_state == 'stopped') {
+				if(load_state == 'stopped') {
 					load_state = 'never loaded';
 					toggleLoadarea(content);
 				}
-				if (load_state == 'never loaded') {
+				if(load_state == 'never loaded') {
 					iframe.removeAttribute('hidden');
 					iframe.setAttribute('loadstate', 'loading');
 					iframe.addEventListener('load', panel_loader, true);
@@ -569,10 +524,10 @@ function (force_reload)
 				header.removeAttribute('selected');
 				content.setAttribute('collapsed','true');
 
-				if (!panel.is_persistent()) {
+				if(!panel.is_persistent()) {
 					iframe.setAttribute('src', 'about:blank');
 					load_state = content.getAttribute('loadstate');
-					if (load_state == 'loading') {
+					if(load_state == 'loading') {
 						iframe.removeEventListener("load", panel_loader, true);
 						content.setAttribute('hidden','true');
 						iframe.setAttribute('loadstate', 'never loaded');
@@ -581,22 +536,22 @@ function (force_reload)
 			}
 		}
 	}
-	if (last_header) {
+	if(last_header) {
 		last_header.setAttribute('last-panel','true');
 	}
 
 	var no_panels_iframe = document.getElementById('sidebar-iframe-no-panels');
-	if (have_set_top) {
-			no_panels_iframe.setAttribute('hidden','true');
-			// The hide and show of 'sidebar-panels' should not be needed,
-			// but some old profiles may have this persisted as hidden (50973).
-			this.node.removeAttribute('hidden');
+	if(have_set_top) {
+		no_panels_iframe.setAttribute('hidden','true');
+		// The hide and show of 'sidebar-panels' should not be needed,
+		// but some old profiles may have this persisted as hidden (50973).
+		this.node.removeAttribute('hidden');
 	} else {
-			no_panels_iframe.removeAttribute('hidden');
+		no_panels_iframe.removeAttribute('hidden');
 	}
 
 	this.initialized = true;
-}
+};
 
 
 //////////////////////////////////////////////////////////////////////
@@ -609,8 +564,7 @@ function (force_reload)
 // This class does not make any changes to the sidebar rdf datasource.
 //////////////////////////////////////////////////////////////////////
 
-function sbPanel(id, header, index)
-{
+function sbPanel(id, header, index) {
 	// This constructor should only be called by sbPanelList class.
 	// To create a panel instance, use the helper functions in sbPanelList:
 	//	 sb_panel.get_panel_from_id(id)
@@ -622,136 +576,105 @@ function sbPanel(id, header, index)
 	this.parent = sidebarObj.panels;
 }
 
-sbPanel.prototype.get_header =
-function ()
-{
+sbPanel.prototype.get_header = function get_header() {
 	return this.header;
-}
+};
 
-sbPanel.prototype.get_content =
-function ()
-{
+sbPanel.prototype.get_content = function get_content() {
 	return this.get_header().nextSibling;
-}
+};
 
-sbPanel.prototype.is_sandboxed =
-function ()
-{
-	if (typeof this.sandboxed == "undefined") {
+sbPanel.prototype.is_sandboxed = function is_sandboxed() {
+	if(typeof this.sandboxed == "undefined") {
 		var notificationbox = this.get_content().childNodes.item(1);
 		var unsandboxed_iframe = notificationbox.firstChild;
 		this.sandboxed = !unsandboxed_iframe.getAttribute('content').match(/^chrome:/);
 	}
 	return this.sandboxed;
-}
+};
 
-sbPanel.prototype.get_iframe =
-function ()
-{
-	if (typeof this.iframe == "undefined") {
+sbPanel.prototype.get_iframe = function get_iframe() {
+	if(typeof this.iframe == "undefined") {
 		var notificationbox = this.get_content().childNodes.item(1);
-		this.iframe = this.is_sandboxed() ? notificationbox.lastChild :
-																				notificationbox.firstChild;
+		this.iframe = this.is_sandboxed() ? notificationbox.lastChild : notificationbox.firstChild;
 	}
 	return this.iframe;
-}
+};
 
 // This exclude function is used on panels and on the panel picker menu.
 // That is why it is hanging out in the global name space instead of
 // minding its own business in the class.
-function sb_panel_is_excluded(node)
-{
+function sb_panel_is_excluded(node) {
 	var exclude = node.getAttribute('exclude');
-	return ( exclude && exclude != '' &&
-					 exclude.indexOf(sidebarObj.component) != -1 );
+	return (exclude && exclude != '' && exclude.indexOf(sidebarObj.component) != -1);
 }
-sbPanel.prototype.is_excluded =
-function ()
-{
+
+sbPanel.prototype.is_excluded = function is_excluded() {
 	return sb_panel_is_excluded(this.get_header());
-}
+};
 
-sbPanel.prototype.is_in_view =
-function()
-{
+sbPanel.prototype.is_in_view = function is_in_view() {
 	return (this.header.getAttribute("in-view") == "true");
-}
+};
 
-sbPanel.prototype.is_selected =
-function (panel_id)
-{
+sbPanel.prototype.is_selected = function is_selected(panel_id) {
 	return 'true' == this.get_header().getAttribute('selected');
-}
+};
 
-sbPanel.prototype.is_persistent =
-function ()
-{
+sbPanel.prototype.is_persistent = function is_persistent() {
 	var rv = false;
 	var datasource = sidebarObj.datasource;
 	var persistNode = datasource.GetTarget(RDF.GetResource(this.id), RDF.GetResource(NC + "persist"), true);
-	if (persistNode)
-	{
-		persistNode =
-			persistNode.QueryInterface(Components.interfaces.nsIRDFLiteral);
+	if(persistNode) {
+		persistNode = persistNode.QueryInterface(Components.interfaces.nsIRDFLiteral);
 		rv = persistNode.Value == 'true';
 	}
 
 	return rv;
-}
+};
 
-sbPanel.prototype.get_url =
-function ()
-{
+sbPanel.prototype.get_url = function get_url() {
 	var rv = '';
 	var datasource = sidebarObj.datasource;
 	var node = datasource.GetTarget(RDF.GetResource(this.id), RDF.GetResource(NC + "content"), true);
-	if (node)
-	{
+	if(node) {
 		node = node.QueryInterface(Components.interfaces.nsIRDFLiteral);
 		rv = node.Value;
 	}
 
 	return rv;
-}
+};
 
-sbPanel.prototype.get_title =
-function ()
-{
+sbPanel.prototype.get_title = function get_title() {
 	var rv = '';
 	var datasource = sidebarObj.datasource;
 	var node = datasource.GetTarget(RDF.GetResource(this.id), RDF.GetResource(NC + "title"), true);
-	if (node)
-	{
+	if(node) {
 		node = node.QueryInterface(Components.interfaces.nsIRDFLiteral);
 		rv = node.Value;
 	}
 
 	return rv;
-}
+};
 
-sbPanel.prototype.select =
-function (force_reload)
-{
+sbPanel.prototype.select = function select(force_reload) {
 	this.parent.select(this, force_reload);
-}
+};
 
-sbPanel.prototype.stop_load =
-function ()
-{
+sbPanel.prototype.stop_load = function stop_load() {
 	var iframe = this.get_iframe();
 	var content = this.get_content();
 	var load_state = iframe.getAttribute('loadstate');
-	if (load_state == "loading") {
+	if(load_state == "loading") {
 		debug("Stop the presses");
 		iframe.removeEventListener("load", panel_loader, true);
 		content.setAttribute("loadstate", "stopped");
 		iframe.setAttribute('src', 'about:blank');
 		toggleLoadarea(content);
 	}
-}
+};
 
-function toggleLoadarea(content)
-{
+function toggleLoadarea(content) {
 	// toggle between "loading" and "load stopped" in the UI
 	var widgetBox = content.firstChild.firstChild;
 	var widgetBoxKids = widgetBox.childNodes;
@@ -762,14 +685,12 @@ function toggleLoadarea(content)
 	var loadStoppedText = loadingText.nextSibling;
 
 	// sanity check
-	if (stopButton.getAttribute("type") != "stop")
-	{
+	if(stopButton.getAttribute("type") != "stop") {
 		debug("Error: Expected button of type=\"stop\" but didn't get one!");
 		return;
 	}
 
-	if (!stopButton.hidden)
-	{
+	if(!stopButton.hidden) {
 		// change button from "stop" to "reload"
 		stopButton.hidden = "true";
 		reloadButton.removeAttribute("hidden");
@@ -778,9 +699,7 @@ function toggleLoadarea(content)
 		loadingImage.hidden = "true";
 		loadingText.hidden = "true";
 		loadStoppedText.removeAttribute("hidden");
-	}
-	else
-	{
+	} else {
 		// change button from "reload" to "stop"
 		stopButton.removeAttribute("hidden");
 		reloadButton.hidden = "true";
@@ -792,22 +711,17 @@ function toggleLoadarea(content)
 	}
 }
 
-sbPanel.prototype.exclude =
-function ()
-{
+sbPanel.prototype.exclude = function exclude() {
 	// Exclusion is handled by the datasource,
 	// but we need to make sure this panel is no longer selected.
 	this.get_header().removeAttribute('selected');
 	this.parent.exclude(this);
-}
+};
 
-sbPanel.prototype.reload =
-function ()
-{
-	if (!this.is_excluded()) {
+sbPanel.prototype.reload = function reload() {
+	if(!this.is_excluded())
 		this.select(true);
-	}
-}
+};
 
 //////////////////////////////////////////////////////////////////
 // Panels' RDF Datasource Observer
@@ -821,52 +735,47 @@ function ()
 //	 Currently this happens when the customize panel dialog is closed.
 //////////////////////////////////////////////////////////////////
 var panel_observer = {
-	onAssert : function(ds,src,prop,target) {
+	onAssert(ds, src, prop, target) {
 		//debug ("observer: assert");
 		// "refresh" is asserted by select menu and by customize.js.
-		if (prop == RDF.GetResource(NC + "refresh")) {
+		if(prop == RDF.GetResource(NC + "refresh")) {
 			sidebarObj.panels.initialized = false; // reset so panels are put in view
 			sidebarObj.panels.refresh();
-		} else if (prop == RDF.GetResource(NC + "refresh_panel")) {
+		} else if(prop == RDF.GetResource(NC + "refresh_panel")) {
 			var panel_id = target.QueryInterface(Components.interfaces.nsIRDFLiteral).Value;
 			var panel = sidebarObj.panels.get_panel_from_id(panel_id);
 			panel.reload();
 		}
 	},
-	onUnassert : function(ds,src,prop,target) {
+	onUnassert(ds, src, prop, target) {
 		//debug ("observer: unassert");
 	},
-	onChange : function(ds,src,prop,old_target,new_target) {
+	onChange(ds, src, prop, old_target, new_target) {
 		//debug ("observer: change");
 	},
-	onMove : function(ds,old_src,new_src,prop,target) {
+	onMove(ds, old_src, new_src, prop, target) {
 		//debug ("observer: move");
 	},
-	onBeginUpdateBatch : function(ds) {
+	onBeginUpdateBatch(ds) {
 		//debug ("observer: onBeginUpdateBatch");
 	},
-	onEndUpdateBatch : function(ds) {
+	onEndUpdateBatch(ds) {
 		//debug ("observer: onEndUpdateBatch");
-	}
+	},
 };
 
 // Use an assertion to pass a "refresh" event to all the sidebars.
 // They use observers to watch for this assertion (see above).
 function refresh_all_sidebars() {
-	sidebarObj.datasource.Assert(RDF.GetResource(sidebarObj.resource),
-															 RDF.GetResource(NC + "refresh"),
-															 RDF.GetLiteral("true"),
-															 true);
-	sidebarObj.datasource.Unassert(RDF.GetResource(sidebarObj.resource),
-																 RDF.GetResource(NC + "refresh"),
-																 RDF.GetLiteral("true"));
+	sidebarObj.datasource.Assert(RDF.GetResource(sidebarObj.resource), RDF.GetResource(NC + "refresh"), RDF.GetLiteral("true"), true);
+	sidebarObj.datasource.Unassert(RDF.GetResource(sidebarObj.resource), RDF.GetResource(NC + "refresh"), RDF.GetLiteral("true"));
 }
 
 //////////////////////////////////////////////////////////////
 // Sidebar Init
 //////////////////////////////////////////////////////////////
 function sidebar_overlay_init() {
-	if (sidebar_is_collapsed() && !gAboutToUncollapse)
+	if(sidebar_is_collapsed() && !gAboutToUncollapse)
 		return;
 	gMustInit = false;
 	sidebarObj.panels = new sbPanelList('sidebar-panels');
@@ -888,22 +797,22 @@ function sidebar_overlay_init() {
 	var sidebar_element = document.getElementById('sidebar-box');
 	var sidebar_menuitem = document.getElementById('sidebar-menu');
 	var sidebar_splitter = document.getElementById('sidebar-splitter');
-	if (sidebar_is_hidden()) {
-		if (sidebar_menuitem) {
+	if(sidebar_is_hidden()) {
+		if(sidebar_menuitem) {
 			sidebar_menuitem.setAttribute('checked', 'false');
 		}
-		if (sidebar_splitter)
+		if(sidebar_splitter)
 			sidebar_splitter.setAttribute('hidden', 'true');
 	} else {
-		if (sidebar_menuitem) {
+		if(sidebar_menuitem) {
 			sidebar_menuitem.setAttribute('checked', 'true');
 		}
 
 		// for old profiles that don't persist the hidden attribute when splitter is not hidden.
-		if (sidebar_splitter)
+		if(sidebar_splitter)
 			sidebar_splitter.setAttribute('hidden', 'false');
 
-		if (sidebarObj.never_built) {
+		if(sidebarObj.never_built) {
 			sidebarObj.never_built = false;
 
 			debug("sidebar = " + sidebarObj);
@@ -916,7 +825,7 @@ function sidebar_overlay_init() {
 			document.getElementById('sidebar-title').setAttribute('value', document.getElementById('sidebar-title-initial').getAttribute('value'));
 			SidebarSetButtonOpen(!sidebar_is_collapsed() && !sidebar_is_hidden());
 		}
-		if (sidebar_is_collapsed()) {
+		if(sidebar_is_collapsed()) {
 			sidebarObj.collapsed = true;
 		} else {
 			sidebarObj.collapsed = false;
@@ -927,16 +836,16 @@ function sidebar_overlay_init() {
 }
 
 function sidebar_overlay_destruct() {
-		var panels = document.getElementById('sidebar-panels');
-		debug("Removing observer from database.");
-		panels.database.RemoveObserver(panel_observer);
+	var panels = document.getElementById('sidebar-panels');
+	debug("Removing observer from database.");
+	panels.database.RemoveObserver(panel_observer);
 }
 
 var gBusyOpeningDefault = false;
 
 function sidebar_open_default_panel(wait, tries) {
 	// check for making function reentrant
-	if (gBusyOpeningDefault)
+	if(gBusyOpeningDefault)
 		return;
 	gBusyOpeningDefault = true;
 
@@ -944,7 +853,7 @@ function sidebar_open_default_panel(wait, tries) {
 	var currentListRes = RDF.GetResource("urn:sidebar:current-panel-list");
 	var panelListRes = RDF.GetResource("http://home.netscape.com/NC-rdf#panel-list");
 	var container = ds.GetTarget(currentListRes, panelListRes, true);
-	if (container) {
+	if(container) {
 		// Add the user's current panel choices to the template builder,
 		// which will aggregate it with the other datasources that describe
 		// the individual panel's title, customize URL, and content URL.
@@ -957,7 +866,7 @@ function sidebar_open_default_panel(wait, tries) {
 		// XXX This is a hack to force re-display
 		panels.builder.rebuild();
 	} else {
-		if (tries < 3) {
+		if(tries < 3) {
 			// No children yet, try again later
 			setTimeout(sidebar_open_default_panel, wait, wait*2, ++tries);
 			gBusyOpeningDefault = false;
@@ -969,7 +878,7 @@ function sidebar_open_default_panel(wait, tries) {
 
 	sidebarObj.panels.refresh();
 	gBusyOpeningDefault = false;
-	if (gCheckMissingPanels)
+	if(gCheckMissingPanels)
 		check_for_missing_panels();
 }
 
@@ -984,27 +893,23 @@ function check_for_missing_panels() {
 	var tabs = sidebarObj.panels.node.childNodes;
 	var currHeader;
 	var currTab;
-	for (var i = 2; i < tabs.length; i += 2) {
+	for(var i=2; i<tabs.length; i+=2) {
 		currHeader = tabs[i];
 		currTab = new sbPanel(currHeader.getAttribute("id"), currHeader, i);
-		if (!currTab.is_excluded()) {
-			if (currHeader.hasAttribute("prereq") && currHeader.getAttribute("prereq") != "") {
+		if(!currTab.is_excluded()) {
+			if(currHeader.hasAttribute("prereq") && currHeader.getAttribute("prereq") != "") {
 				var prereq_file = currHeader.getAttribute("prereq");
 				var ios = Services.io;
-				var channel = ios.newChannel2(prereq_file, null, null, null,
-																			Services.scriptSecurityManager.getSystemPrincipal(),
-																			null,
-																			Components.interfaces.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
-																			Components.interfaces.nsIContentPolicy.TYPE_OTHER);
+				var channel = ios.newChannel2(prereq_file, null, null, null, Services.scriptSecurityManager.getSystemPrincipal(), null, Components.interfaces.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL, Components.interfaces.nsIContentPolicy.TYPE_OTHER);
 				try {
 					channel.open();
-				}
-				catch(ex if (ex.result == Components.results.NS_ERROR_FILE_NOT_FOUND)) {
-					sidebarObj.datasource.Assert(RDF.GetResource(currHeader.getAttribute("id")),
-																			 RDF.GetResource(NC + "exclude"),
-																			 RDF.GetLiteral(sidebarObj.component),
-																			 true);
-					currTab.exclude();
+				} catch(ex) {
+					if(ex.result == Components.results.NS_ERROR_FILE_NOT_FOUND) {
+						sidebarObj.datasource.Assert(RDF.GetResource(currHeader.getAttribute("id")), RDF.GetResource(NC + "exclude"), RDF.GetLiteral(sidebarObj.component), true);
+						currTab.exclude();
+					} else {
+						throw ex;
+					}
 				}
 			}
 		}
@@ -1025,7 +930,7 @@ function sidebar_get_panels_file() {
 		// bin/defaults/profile/panels.rdf to <profile>/panels.rdf
 		var sidebar_file = Services.dirsvc.get('ProfD', Components.interfaces.nsIFile).clone();
 		sidebar_file.append('panels.rdf');
-		if (!sidebar_file.exists()) {
+		if(!sidebar_file.exists()) {
 			sidebar_file.create(Components.interfaces.nsIFile.NORMAL_FILE_TYPE, 0o600);
 			var stream = Components.classes['@mozilla.org/network/file-output-stream;1'].createInstance(Components.interfaces.nsIFileOutputStream);
 			stream.init(sidebar_file, 0x02 | 0x08 | 0x20, 0o600, 0);
@@ -1034,13 +939,13 @@ function sidebar_get_panels_file() {
 			stream.close();
 			sidebar_file = Services.dirsvc.get('ProfD', Components.interfaces.nsIFile).clone();
 			sidebar_file.append('panels.rdf');
-			if (!sidebar_file.exists()) {
+			if(!sidebar_file.exists()) {
 				debug("Sidebar panels file does not exist");
 				throw("Panels file does not exist");
 			}
 		}
 		return sidebar_file;
-	} catch (ex) {
+	} catch(ex) {
 		// This should not happen
 		debug("Error: Unable to grab panels file.\n");
 		throw(ex);
@@ -1061,7 +966,7 @@ function sidebar_revert_to_default_panels() {
 		debug("sidebar defaults reloaded");
 		var datasource = sidebarObj.datasource;
 		datasource.QueryInterface(Components.interfaces.nsIRDFRemoteDataSource).Refresh(true);
-	} catch (ex) {
+	} catch(ex) {
 		debug("Error: Unable to reload panel defaults file.\n");
 	}
 	return null;
@@ -1074,7 +979,7 @@ function get_sidebar_datasource_uri() {
 		var fileHandler = Services.io.getProtocolHandler("file").QueryInterface(Components.interfaces.nsIFileProtocolHandler);
 
 		return fileHandler.getURLSpecFromFile(sidebar_file);
-	} catch (ex) {
+	} catch(ex) {
 		// This should not happen
 		debug("Error: Unable to load panels file.\n");
 	}
@@ -1090,7 +995,7 @@ function get_remote_datasource_url() {
 	// otherwise the latter reports an (ignorable) error.
 	// "about:blank": formatURLPref() default value.
 	let url = GetStringPref("sidebar.customize.all_panels.url") || "about:blank";
-	if (url != "about:blank") {
+	if(url != "about:blank") {
 		url = url.replace(/%SIDEBAR_VERSION%/g, SIDEBAR_VERSION);
 		url = Services.urlFormatter.formatURL(url);
 		// Convert the %LOCALE% value (in the url) to lower case (e.g. en-us).
@@ -1105,10 +1010,8 @@ function sidebar_fixup_datasource() {
 	var datasource = sidebarObj.datasource;
 	var resource = RDF.GetResource(sidebarObj.resource);
 
-	var panel_list = datasource.GetTarget(resource,
-																				RDF.GetResource(NC+"panel-list"),
-																				true);
-	if (!panel_list) {
+	var panel_list = datasource.GetTarget(resource, RDF.GetResource(NC + "panel-list"), true);
+	if(!panel_list) {
 		debug("Sidebar datasource is an old format or busted\n");
 		sidebar_revert_to_default_panels();
 	} else {
@@ -1128,61 +1031,56 @@ function SidebarSelectPanel(header, should_popopen, should_unhide) {
 	debug("SidebarSelectPanel("+header+","+should_popopen+","+should_unhide+")");
 	var panel = sidebarObj.panels.get_panel_from_header_node(header);
 
-	if (!panel) {
+	if(!panel)
 		return false;
-	}
 
 	var popopen = false;
 	var unhide = false;
 
-	if (panel.is_excluded()) {
+	if(panel.is_excluded())
 		return false;
-	}
-	if (sidebar_is_hidden()) {
-		if (should_unhide) {
+	if(sidebar_is_hidden()) {
+		if(should_unhide) {
 			unhide = true;
 		} else {
 			return false;
 		}
 	}
-	if (sidebar_is_collapsed()) {
-		if (should_popopen) {
+	if(sidebar_is_collapsed()) {
+		if(should_popopen) {
 			popopen = true;
 		} else {
 			return false;
 		}
 	}
-	if (unhide)	SidebarShowHide();
-	if (popopen) SidebarExpandCollapse();
+	if(unhide)	SidebarShowHide();
+	if(popopen) SidebarExpandCollapse();
 
 	try {
 		panel.get_iframe().setAttribute('focusOnLoad', true);
-	} catch (ex) {
+	} catch(ex) {
 		// ignore exception for cases where content isn't built yet
 		// e.g., auto opening search tab: we don't want to focus search field
 	}
-	if (!panel.is_selected()) panel.select(false);
+	if(!panel.is_selected()) panel.select(false);
 
 	return true;
 }
 
-function SidebarGetLastSelectedPanel()
-{
-	return (sidebarObj.panels &&
-					sidebarObj.panels.node.getAttribute('last-selected-panel'));
+function SidebarGetLastSelectedPanel() {
+	return (sidebarObj.panels && sidebarObj.panels.node.getAttribute('last-selected-panel'));
 }
 
-function SidebarGetRelativePanel(direction)
-{
+function SidebarGetRelativePanel(direction) {
 	// direction == 1 to view next panel, -1 to view prev panel
 
-	if (sidebar_is_hidden())
+	if(sidebar_is_hidden())
 		SidebarShowHide();
-	if (sidebar_is_collapsed())
+	if(sidebar_is_collapsed())
 		SidebarExpandCollapse();
 
 	var currentPanel = sidebarObj.panels.get_panel_from_id(SidebarGetLastSelectedPanel());
-	if (!currentPanel) {
+	if(!currentPanel) {
 		sidebarObj.panels.select_default_panel();
 		return;
 	}
@@ -1191,19 +1089,19 @@ function SidebarGetRelativePanel(direction)
 
 	do {
 		var newPanelIndex = newPanel.index + (direction * 2);
-		if (newPanelIndex < 2 || newPanelIndex >= sidebarObj.panels.node.childNodes.length)
+		if(newPanelIndex < 2 || newPanelIndex >= sidebarObj.panels.node.childNodes.length)
 			newPanel = (direction == 1)? sidebarObj.panels.find_first(): sidebarObj.panels.find_last();
 		else
 			newPanel = sidebarObj.panels.get_panel_from_header_index(newPanelIndex);
 
-		if (!newPanel)
+		if(!newPanel)
 			break;
 
-		if (!newPanel.is_excluded()) {
+		if(!newPanel.is_excluded()) {
 			SidebarSelectPanel(newPanel.header, true, true);	// found a panel that's not excluded to select -- do it
 			break;
 		}
-	} while (newPanel != currentPanel);	// keep looking for a panel, but don't loop infinitely
+	} while(newPanel != currentPanel);	// keep looking for a panel, but don't loop infinitely
 }
 
 function SidebarStopPanelLoad(header) {
@@ -1233,47 +1131,38 @@ function SidebarCustomize() {
 	// Use a single sidebar customize dialog
 	var customizeWindow = Services.wm.getMostRecentWindow('sidebar:customize');
 
-	if (customizeWindow) {
+	if(customizeWindow) {
 		debug("Reuse existing customize dialog");
 		customizeWindow.focus();
 	} else {
 		debug("Open a new customize dialog");
 
-		if (false == gDisableCustomize) {
+		if(false == gDisableCustomize) {
 			debug("First time creating customize dialog");
 			gDisableCustomize = true;
 
 			var panels = document.getElementById('sidebar-panels');
 
-			customizeWindow = window.openDialog(
-												 'chrome://netscapesidebar/content/sidebar/customize.xul',
-												 '_blank','centerscreen,chrome,resizable,dialog=no,dependent',
-												 sidebarObj.master_datasources,
-												 sidebarObj.master_resource,
-												 sidebarObj.datasource_uri,
-												 sidebarObj.resource);
+			customizeWindow = window.openDialog('chrome://netscapesidebar/content/sidebar/customize.xul', '_blank','centerscreen,chrome,resizable,dialog=no,dependent', sidebarObj.master_datasources, sidebarObj.master_resource, sidebarObj.datasource_uri, sidebarObj.resource);
 			setTimeout(enable_customize, 2000);
 		}
 	}
 }
 
-function BrowseMorePanels()
-{
+function BrowseMorePanels() {
 	var url = '';
 	var browser_url = "chrome://browser/content/browser.xul";
 	var locale;
 	try {
 		url = 'https://edmullen.net/mozilla/moz_sidebar.php';
 		var temp = Services.prefs.getCharPref("browser.chromeURL");
-		if (temp)
+		if(temp)
 			browser_url = temp;
 	} catch(ex) {
 		debug("Unable to get prefs: "+ex);
 	}
 	window.openDialog(browser_url, "_blank", "chrome,all,dialog=no", url);
 }
-
-
 
 function sidebar_is_collapsed() {
 	var sidebar_splitter = document.getElementById('sidebar-splitter');
@@ -1283,8 +1172,8 @@ function sidebar_is_collapsed() {
 function SidebarExpandCollapse() {
 	var sidebar_splitter = document.getElementById('sidebar-splitter');
 	var sidebar_box = document.getElementById('sidebar-box');
-	if (sidebar_splitter.getAttribute('state') == 'collapsed') {
-		if (gMustInit)
+	if(sidebar_splitter.getAttribute('state') == 'collapsed') {
+		if(gMustInit)
 			sidebar_overlay_init();
 		debug("Expanding the sidebar");
 		sidebar_splitter.removeAttribute('state');
@@ -1314,14 +1203,14 @@ function SidebarShowHide() {
 	var sidebar_menu_item = document.getElementById('sidebar-menu');
 	var tabs_menu = document.getElementById('sidebar-panel-picker');
 
-	if (sidebar_is_hidden()) {
+	if(sidebar_is_hidden()) {
 		debug("Showing the sidebar");
 
 		// for older profiles:
 		sidebar_box.setAttribute('hidden', 'false');
 
 		sidebar_box.removeAttribute('collapsed');
-		if (sidebar_splitter.getAttribute('state') == 'collapsed')
+		if(sidebar_splitter.getAttribute('state') == 'collapsed')
 			sidebar_splitter.removeAttribute('state');
 		title_box.removeAttribute('hidden');
 		sidebar_splitter.setAttribute('hidden', 'false');
@@ -1346,9 +1235,9 @@ function SidebarShowHide() {
 }
 
 function SidebarGetState() {
-	if (sidebar_is_hidden())
+	if(sidebar_is_hidden())
 		return "hidden";
-	if (sidebar_is_collapsed())
+	if(sidebar_is_collapsed())
 		return "collapsed";
 	return "visible";
 }
@@ -1363,9 +1252,9 @@ function SidebarBuildPickerPopup() {
 	menu.database.AddDataSource(sidebarObj.datasource);
 	menu.builder.rebuild();
 
-	for (var ii=3; ii < menu.childNodes.length; ii++) {
+	for(var ii=3; ii<menu.childNodes.length; ii++) {
 		var panel_menuitem = menu.childNodes.item(ii);
-		if (sb_panel_is_excluded(panel_menuitem)) {
+		if(sb_panel_is_excluded(panel_menuitem)) {
 			debug(ii+": "+panel_menuitem.getAttribute('label')+ ": excluded; uncheck.");
 			panel_menuitem.removeAttribute('checked');
 		} else {
@@ -1376,8 +1265,7 @@ function SidebarBuildPickerPopup() {
 }
 
 function SidebarTogglePanel(panel_menuitem) {
-	if (!panel_menuitem.classList.contains("menuitem-sidebar") &&
-			!panel_menuitem.classList.contains("texttab-sidebar"))
+	if(!panel_menuitem.classList.contains("menuitem-sidebar") && !panel_menuitem.classList.contains("texttab-sidebar"))
 		return;
 
 	// Create a "container" wrapper around the current panels to
@@ -1387,13 +1275,10 @@ function SidebarTogglePanel(panel_menuitem) {
 	var panel_id = panel_menuitem.getAttribute('id');
 	var panel = sidebarObj.panels.get_panel_from_id(panel_id);
 	var panel_exclude = panel_menuitem.getAttribute('exclude')
-	if (panel_exclude == '') {
+	if(panel_exclude == '') {
 		// Nothing excluded for this panel yet, so add this component to the list.
 		debug("Excluding " + panel_id + " from " + sidebarObj.component);
-		sidebarObj.datasource.Assert(RDF.GetResource(panel_id),
-																RDF.GetResource(NC + "exclude"),
-																RDF.GetLiteral(sidebarObj.component),
-																true);
+		sidebarObj.datasource.Assert(RDF.GetResource(panel_id), RDF.GetResource(NC + "exclude"), RDF.GetLiteral(sidebarObj.component), true);
 		panel.exclude();
 		did_exclude = true;
 	} else {
@@ -1401,7 +1286,7 @@ function SidebarTogglePanel(panel_menuitem) {
 		// current component listed in the string.
 		debug("Current exclude string: " + panel_exclude);
 		var new_exclude = panel_exclude;
-		if (sb_panel_is_excluded(panel_menuitem)) {
+		if(sb_panel_is_excluded(panel_menuitem)) {
 			debug("Plucking this component out of the exclude list");
 			var replace_pat = new RegExp(sidebarObj.component + "\s*");
 			new_exclude = new_exclude.replace(replace_pat, "").trimLeft();
@@ -1412,70 +1297,55 @@ function SidebarTogglePanel(panel_menuitem) {
 			panel.exclude();
 			did_exclude = true;
 		}
-		if (new_exclude == '') {
+		if(new_exclude == '') {
 			debug("Removing exclude list");
-			sidebarObj.datasource.Unassert(RDF.GetResource(panel_id),
-																		 RDF.GetResource(NC + "exclude"),
-																		 RDF.GetLiteral(sidebarObj.component));
+			sidebarObj.datasource.Unassert(RDF.GetResource(panel_id), RDF.GetResource(NC + "exclude"), RDF.GetLiteral(sidebarObj.component));
 		} else {
 			debug("New exclude string: " + new_exclude);
 			exclude_target =
-				sidebarObj.datasource.GetTarget(RDF.GetResource(panel_id),
-																				RDF.GetResource(NC + "exclude"),
-																				true);
-			sidebarObj.datasource.Change(RDF.GetResource(panel_id),
-																	 RDF.GetResource(NC + "exclude"),
-																	 exclude_target,
-																	 RDF.GetLiteral(new_exclude));
+				sidebarObj.datasource.GetTarget(RDF.GetResource(panel_id), RDF.GetResource(NC + "exclude"), true);
+			sidebarObj.datasource.Change(RDF.GetResource(panel_id), RDF.GetResource(NC + "exclude"), exclude_target, RDF.GetLiteral(new_exclude));
 		}
 	}
 
 	var tabs = sidebarObj.panels.node.childNodes;
 
-	if (did_exclude)
-	{
+	if(did_exclude) {
 		// if we excluded a tab in view then add another one
-		if (panel.is_in_view())
-		{
+		if(panel.is_in_view()) {
 			// we excluded one so let's try to bring a non-excluded one into view
 			var newFirst = null;
 			var added = false;
-			for (var i = 2; i < tabs.length ; i += 2)
-			{
+			for(var i=2; i<tabs.length; i+=2) {
 				var currTab = sidebarObj.panels.get_panel_from_header_index(i);
 				var hasPotential = !currTab.is_excluded() && !currTab.is_in_view();
 
 				// set potential new first tab in case we can't find one after the
 				// tab that was just excluded
-				if (!newFirst && hasPotential)
+				if(!newFirst && hasPotential)
 					newFirst = currTab;
 
-				if (i > panel.index && hasPotential)
-				{
+				if(i > panel.index && hasPotential) {
 					currTab.header.setAttribute("in-view", true);
 					added = true;
 					break;
 				}
 			}
-			if (!added && newFirst)
+			if(!added && newFirst)
 				newFirst.header.setAttribute("in-view", true);
 
 			// lose it from current view
 			panel.header.setAttribute("in-view", false);
 		}
-	}
-	else
-	{
+	} else {
 		panel.header.setAttribute("in-view", true);
 
 		// if we have one too many tabs we better get rid of an old one
-		if (sidebarObj.panels.num_panels_in_view() > gNumTabsInViewPref)
-		{
+		if(sidebarObj.panels.num_panels_in_view() > gNumTabsInViewPref) {
 			// we included a new tab so let's take the last one out of view
-			for (i = 2; i < tabs.length; i += 2)
-			{
+			for(i=2; i<tabs.length; i+=2) {
 				var currHeader = tabs[i];
-				if (currHeader.hasAttribute("last-panel"))
+				if(currHeader.hasAttribute("last-panel"))
 					currHeader.setAttribute("in-view", false);
 			}
 		}
@@ -1483,7 +1353,7 @@ function SidebarTogglePanel(panel_menuitem) {
 		panel.select(false);
 	}
 
-	if (did_exclude && !sidebarObj.panels.visible_panels_exist())
+	if(did_exclude && !sidebarObj.panels.visible_panels_exist())
 		// surrender focus to main content area
 		window.content.focus();
 	else
@@ -1494,8 +1364,7 @@ function SidebarTogglePanel(panel_menuitem) {
 	sidebarObj.datasource.QueryInterface(Components.interfaces.nsIRDFRemoteDataSource).Flush();
 }
 
-function SidebarNavigate(aDirection)
-{
+function SidebarNavigate(aDirection) {
 	debug("SidebarNavigate " + aDirection);
 
 	var tabs = sidebarObj.panels.node.childNodes;
@@ -1503,20 +1372,16 @@ function SidebarNavigate(aDirection)
 	var currHeader;
 	var currTab;
 	// move forward a tab (down in the template)
-	if (aDirection > 0)
-	{
+	if(aDirection > 0) {
 		// ensure we have a tab below the last one
 		var foundLast = false;
 		var oldFirst = null;
-		for (i = 2; i < tabs.length; i += 2)
-		{
+		for(i=2; i<tabs.length; i+=2) {
 			currHeader = tabs[i];
 			currTab = new sbPanel(currHeader.getAttribute("id"), currHeader, i);
 
-			if (!currTab.is_excluded())
-			{
-				if (foundLast)
-				{
+			if(!currTab.is_excluded()) {
+				if(foundLast) {
 					debug("toggling old first and new last");
 					debug("new last:	" + currHeader.getAttribute("id"));
 					debug("old first: " + oldFirst.getAttribute("id"));
@@ -1524,60 +1389,46 @@ function SidebarNavigate(aDirection)
 					oldFirst.setAttribute("in-view", false);
 
 					// if old first was selected select new first instead
-					if (oldFirst.getAttribute("id") ==
-							sidebarObj.panels.node.getAttribute("last-selected-panel"))
-					{
-						sidebarObj.panels.node.setAttribute('last-selected-panel',
-							currTab.id);
+					if(oldFirst.getAttribute("id") == sidebarObj.panels.node.getAttribute("last-selected-panel")) {
+						sidebarObj.panels.node.setAttribute('last-selected-panel', currTab.id);
 					}
 
 					break;
 				}
 
-				if (!foundLast && currHeader.hasAttribute("last-panel"))
-				{
+				if(!foundLast && currHeader.hasAttribute("last-panel")) {
 					debug("found last");
 					foundLast = true;
 				}
 
 				// set the old first in case we find a new last below
 				// the old last and need to toggle the new first's ``in-view''
-				if (!oldFirst && currTab.is_in_view())
+				if(!oldFirst && currTab.is_in_view())
 					oldFirst = currHeader;
 			}
 		}
-	}
-
-	// move back a tab (up in the template)
-	else if (aDirection < 0)
-	{
+	} else if(aDirection < 0) {  // move back a tab (up in the template)
 		var newFirst = null, newLast = null;
 		var foundFirst = false;
-		for (i = 2; i < tabs.length; i += 2)
-		{
+		for(i=2; i<tabs.length; i+=2) {
 			currHeader = tabs[i];
 			currTab = new sbPanel(currHeader.getAttribute("id"), currHeader, i);
 
-			if (!currTab.is_excluded())
-			{
-				if (!foundFirst && currHeader.hasAttribute("top-panel"))
-				{
+			if(!currTab.is_excluded()) {
+				if(!foundFirst && currHeader.hasAttribute("top-panel")) {
 					debug("found first");
 					foundFirst = true;
 				}
-				if (!foundFirst)
-				{
+				if(!foundFirst) {
 					debug("setting newFirst");
 					newFirst = currHeader;
 				}
 
-				if (currHeader.hasAttribute("last-panel"))
-				{
+				if(currHeader.hasAttribute("last-panel")) {
 					debug("found last");
 
 					// ensure we have a tab above the first one
-					if (newFirst)
-					{
+					if(newFirst) {
 						debug("toggling new first and old last");
 						debug("new first: " + newFirst.getAttribute("id"));
 						debug("old last:	" + currHeader.getAttribute("id"));
@@ -1586,23 +1437,20 @@ function SidebarNavigate(aDirection)
 						currHeader.setAttribute("in-view", false); // hide old last
 
 						// if old last was selected, now select one above it
-						if (sidebarObj.panels.node.getAttribute("last-selected-panel") ==
-								currTab.id)
-						{
-							sidebarObj.panels.node.setAttribute("last-selected-panel",
-								newLast.getAttribute("id"));
+						if(sidebarObj.panels.node.getAttribute("last-selected-panel") == currTab.id) {
+							sidebarObj.panels.node.setAttribute("last-selected-panel", newLast.getAttribute("id"));
 						}
 
 						break;
 					}
 				}
-				if (currTab.is_in_view())
+				if(currTab.is_in_view())
 					newLast = currHeader;
 			}
 		}
 	}
 
-	if (aDirection)
+	if(aDirection)
 		sidebarObj.panels.update(false);
 }
 
@@ -1614,7 +1462,7 @@ function SidebarNavigate(aDirection)
 function SidebarCleanUpExpandCollapse() {
 	// XXX Mini hack. Persist isn't working too well. Force the persist,
 	// but wait until the change has commited.
-	if (gMustInit) {
+	if(gMustInit) {
 		gAboutToUncollapse = true;
 		sidebar_overlay_init();
 	}
@@ -1629,8 +1477,7 @@ function PersistWidth() {
 	// but wait until the width change has commited. Also see bug 16516.
 	setTimeout(Persist, 100, "sidebar-box", "width");
 
-	var is_collapsed = document.getElementById("sidebar-box")
-														 .getAttribute("collapsed") == "true";
+	var is_collapsed = document.getElementById("sidebar-box").getAttribute("collapsed") == "true";
 	SidebarSetButtonOpen(!is_collapsed);
 }
 
@@ -1643,14 +1490,12 @@ function SidebarFinishClick() {
 
 	var is_collapsed = document.getElementById('sidebar-box').getAttribute('collapsed') == 'true';
 	debug("collapsed: " + is_collapsed);
-	if (is_collapsed != sidebarObj.collapsed) {
-		if (gMustInit)
-			sidebar_overlay_init();
+	if(is_collapsed != sidebarObj.collapsed && gMustInit) {
+		sidebar_overlay_init();
 	}
 }
 
-function SidebarSetButtonOpen(aSidebarNowOpen)
-{
+function SidebarSetButtonOpen(aSidebarNowOpen) {
 	var tb = document.getElementById('toggle-sidebar-button');
 	if(!tb) return;
 	if(aSidebarNowOpen) {
@@ -1662,8 +1507,7 @@ function SidebarSetButtonOpen(aSidebarNowOpen)
 	}
 }
 
-function SidebarInitContextMenu(aMenu, aPopupNode)
-{
+function SidebarInitContextMenu(aMenu, aPopupNode) {
 	var panel = sidebarObj.panels.get_panel_from_header_node(aPopupNode);
 	var switchItem = document.getElementById("switch-ctx-item");
 	var reloadItem = document.getElementById("reload-ctx-item");
@@ -1671,7 +1515,7 @@ function SidebarInitContextMenu(aMenu, aPopupNode)
 
 	// the current panel can be reloaded, but other panels are not showing
 	// any content, so we only allow you to switch to other panels
-	if (panel.is_selected()) {
+	if(panel.is_selected()) {
 		switchItem.setAttribute("collapsed", "true");
 		reloadItem.removeAttribute("disabled");
 	} else {
@@ -1680,7 +1524,7 @@ function SidebarInitContextMenu(aMenu, aPopupNode)
 	}
 
 	// only if a panel is currently loading enable the ``Stop'' item
-	if (panel.get_iframe().getAttribute("loadstate") == "loading")
+	if(panel.get_iframe().getAttribute("loadstate") == "loading")
 		stopItem.removeAttribute("disabled");
 	else
 		stopItem.setAttribute("disabled", "true");
@@ -1692,56 +1536,57 @@ function SidebarInitContextMenu(aMenu, aPopupNode)
 var debug = null;
 var dump_attributes = null;
 var dump_tree = null;
-if (!SB_DEBUG) {
+if(!SB_DEBUG) {
 	debug = function (s) {};
 	dump_attributes = function (node, depth) {};
 	dump_tree = function (node) {};
 	var _dump_tree_recur = function (node, depth, index) {};
 } else {
-	debug = function (s) { dump("-*- sbOverlay: " + s + "\n"); };
+	debug = function debug(s) {
+		dump("-*- sbOverlay: " + s + "\n");
+	};
 
-	dump_attributes = function (node, depth) {
+	dump_attributes = function dump_attributes(node, depth) {
 		var attributes = node.attributes;
 		var indent = "| | | | | | | | | | | | | | | | | | | | | | | | | | | | . ";
 
-		if (!attributes || attributes.length == 0) {
+		if(!attributes || attributes.length == 0) {
 			debug(indent.substr(indent.length - depth*2) + "no attributes");
 		}
-		for (var ii=0; ii < attributes.length; ii++) {
+		for(var ii=0; ii<attributes.length; ii++) {
 			var attr = attributes.item(ii);
-			debug(indent.substr(indent.length - depth*2) + attr.name +
-						"=" + attr.value);
+			debug(indent.substr(indent.length - depth*2) + attr.name + "=" + attr.value);
 		}
-	}
-	dump_tree = function (node) {
+	};
+	dump_tree = function dump_tree(node) {
 		_dump_tree_recur(node, 0, 0);
-	}
-	_dump_tree_recur = function (node, depth, index) {
-		if (!node) {
+	};
+	_dump_tree_recur = function _dump_tree_recur(node, depth, index) {
+		if(!node) {
 			debug("dump_tree: node is null");
 		}
 		var indent = "| | | | | | | | | | | | | | | | | | | | | | | | | | | | + ";
-		debug(indent.substr(indent.length - depth*2) + index +
-					" " + node.nodeName);
-		if (node.nodeType != Node.TEXT_NODE) {
+		debug(indent.substr(indent.length - depth*2) + index + " " + node.nodeName);
+		if(node.nodeType != Node.TEXT_NODE) {
 			dump_attributes(node, depth);
 		}
 		var kids = node.childNodes;
-		for (var ii=0; ii < kids.length; ii++) {
+		for(var ii=0; ii<kids.length; ii++) {
 			_dump_tree_recur(kids[ii], depth + 1, ii);
 		}
-	}
+	};
 }
 
-function SidebarBroadcastersToRDF()
-{
+function SidebarBroadcastersToRDF() {
 	// Only the broadcasters in browser are synced to panels.rdf
-	if (sidebarObj.component != "navigator:browser")
+	if(sidebarObj.component != "navigator:browser")
 		return;
 
 	// Translation rules to translate between new broadcaster id and old RDF id.
-	const TRANSLATE = {viewBookmarksSidebar:	 "bookmarks",
-						viewHistorySidebar:		 "history"};
+	const TRANSLATE = {
+		viewBookmarksSidebar: "bookmarks",
+		viewHistorySidebar: "history",
+	};
 	const URN_PREFIX = "urn:sidebar:panel:";
 
 	const RDFCU = Components.classes['@mozilla.org/rdf/container-utils;1'].getService(Components.interfaces.nsIRDFContainerUtils);
@@ -1756,7 +1601,7 @@ function SidebarBroadcastersToRDF()
 	let masterListRes = RDF.GetResource(sidebarObj.master_resource);
 	let currentTarget = ds.GetTarget(currentListRes, panelListRes, true);
 	let masterTarget = ds.GetTarget(masterListRes, panelListRes, true);
-	if (!masterTarget) {
+	if(!masterTarget) {
 		// No "master-panel-list" found, so create it.
 		masterTarget = RDF.GetAnonymousResource();
 		ds.Assert(masterListRes, panelListRes, masterTarget, true);
@@ -1774,13 +1619,13 @@ function SidebarBroadcastersToRDF()
 	let bset = document.getElementById("mainBroadcasterSet");
 	let broadcasters = bset.getElementsByTagName("broadcaster");
 	let bclist = {};
-	for (let bId = 0; bId < broadcasters.length; bId++) {
+	for(let bId = 0; bId < broadcasters.length; bId++) {
 		let curBC = broadcasters[bId];
 		let title = curBC.getAttribute("sidebartitle") || curBC.getAttribute("label");
 		let url = curBC.getAttribute("sidebarurl");
 		let bcid = (curBC.id in TRANSLATE) ? TRANSLATE[curBC.id] : curBC.id;
 
-		if (!url || !title || !bcid)
+		if(!url || !title || !bcid)
 			continue;
 
 		// This one is needed later to check for obsolete sidebars.
@@ -1796,22 +1641,20 @@ function SidebarBroadcastersToRDF()
 		let cururlLit = ds.GetTarget(panelRes, urlRes, true);
 
 		// If the item doesn't already exist, create it.
-		if (!curtitleLit && !cururlLit) {
+		if(!curtitleLit && !cururlLit) {
 			ds.Assert(panelRes, titleRes, titleLit, true);
 			ds.Assert(panelRes, urlRes, urlLit, true);
 			masterSeq.AppendElement(panelRes);
-			if (currentSeq.IndexOf(panelRes) == -1)
+			if(currentSeq.IndexOf(panelRes) == -1)
 				currentSeq.AppendElement(panelRes);
-		}
-		// Item already exists, but perhaps we need to update...
-		else {
+		} else {  // Item already exists, but perhaps we need to update...
 			let curtitle = curtitleLit.QueryInterface(Components.interfaces.nsIRDFLiteral).Value;
 			let cururl = cururlLit.QueryInterface(Components.interfaces.nsIRDFLiteral).Value;
 
-			if (curtitle != title)
+			if(curtitle != title)
 				ds.Change(panelRes, titleRes, curtitleLit, titleLit);
 
-			if (cururl != url)
+			if(cururl != url)
 				ds.Change(panelRes, urlRes, cururlLit, urlLit);
 		}
 	}
@@ -1821,15 +1664,15 @@ function SidebarBroadcastersToRDF()
 	 */
 
 	let masterElements = masterSeq.GetElements();
-	while (masterElements.hasMoreElements()) {
+	while(masterElements.hasMoreElements()) {
 		let curElementRes = masterElements.getNext();
 		let curId = curElementRes.QueryInterface(Components.interfaces.nsIRDFResource).Value;
 
-		if (curId.substr(0, URN_PREFIX.length) != URN_PREFIX)
+		if(curId.substr(0, URN_PREFIX.length) != URN_PREFIX)
 			continue;
 
 		curId = curId.substr(URN_PREFIX.length);
-		if (!(curId in bclist)) {
+		if(!(curId in bclist)) {
 			let properties = ds.ArcLabelsOut(curElementRes);
 			while(properties.hasMoreElements()) {
 				let propertyRes = properties.getNext();
@@ -1837,7 +1680,7 @@ function SidebarBroadcastersToRDF()
 				ds.Unassert(curElementRes, propertyRes, valueLit);
 			}
 			masterSeq.RemoveElement(curElementRes, true);
-			if (currentSeq.IndexOf(curElementRes) != -1)
+			if(currentSeq.IndexOf(curElementRes) != -1)
 				currentSeq.RemoveElement(curElementRes, true);
 		}
 	}
