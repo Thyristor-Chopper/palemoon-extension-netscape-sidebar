@@ -7,4 +7,4 @@ locale	netscapesidebar	ko			locale/ko/
 overlay	chrome://browser/content/browser.xul					chrome://netscapesidebar/content/sidebar/sidebarOverlay.xul
 overlay	chrome://browser/content/bookmarks/bookmarksPanel.xul	chrome://netscapesidebar/content/bookmarks/bookmarksOverlay.xul
 overlay	chrome://browser/content/history/history-panel.xul		chrome://netscapesidebar/content/history/historyOverlay.xul
-overlay chrome://global/content/customizeToolbar.xul			chrome://netscapesidebar/content/customizeToolbarOverlay.xul
+style	chrome://global/content/customizeToolbar.xul			chrome://netscapesidebar/skin/customize-toolbar.css
