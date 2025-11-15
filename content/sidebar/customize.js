@@ -25,6 +25,8 @@ var sidebarObj = new Object;
 var allPanelsObj = new Object;
 var original_panels = new Array();
 
+var customized = false;
+
 //////////////////////////////////////////////////////////////
 // Sidebar Init/Destroy
 //////////////////////////////////////////////////////////////
@@ -415,13 +417,9 @@ function CustomizePanel()
 
 		if (!customize_url) return;
 
-		window.openDialog('chrome://netscapesidebar/content/sidebar/customize-panel.xul',
-											'_blank',
-											'chrome,resizable,width=690,height=600,dialog=no,close',
-											panel_id,
-											customize_url,
-											sidebarObj.datasource_uri,
-											sidebarObj.resource);
+		window.openDialog('chrome://netscapesidebar/content/sidebar/customize-panel.xul', '_blank', 'chrome,resizable,width=690,height=600,dialog=no,close', panel_id, customize_url, sidebarObj.datasource_uri, sidebarObj.resource);
+		
+		customized = true;
 	}
 }
 
@@ -465,8 +463,11 @@ function Save()
 		if (list_unchanged && original_panels[i] != panel)
 			list_unchanged = false;
 	}
-	if (list_unchanged)
+	if (list_unchanged) {
+		if(customized)
+			refresh_all_sidebars();
 		return;
+	}
 
 	// Remove all the current panels from the datasource.
 	current_panels = sidebarObj.container.GetElements();

@@ -45,7 +45,7 @@ function toggleSidebar(commandID, forceOpen) {
 function checkDuplicatePanel(url) {
 	for(var panel of sidebarObj.panels.as_array())
 		if(panel.get_url() == url)
-			return panel.get_title();
+			return true;
 	return false;
 }
 
@@ -505,7 +505,7 @@ sbPanelList.prototype.update = function update(force_reload) {
 							clearTimeout(gTimeoutID);
 
 						gCurFrame = iframe;
-						gTimeoutID = setTimeout(setBlank, 20000);
+						// gTimeoutID = setTimeout(setBlank, 20000);
 					}
 				}
 
