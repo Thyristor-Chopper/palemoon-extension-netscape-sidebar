@@ -53,6 +53,50 @@ function encodeHTML(html) {
 	return btoa(encodeURIComponent('<meta charset=utf-8 />' + html).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode(parseInt('0x' + p1))));
 }
 
+function exportFunction(fn, target) {
+	Components.utils.exportFunction(fn, target, { defineAs: fn.name });
+}
+
+function addPanel(title, url, customize) {
+	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	title = title || '';
+	url = url || '';
+	customize = customize || '';
+	title += '';
+	url += '';
+	customize += '';
+	const lcurl = url.toLowerCase();
+	if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:') && !lcurl.startsWith('file:')) throw new Error('Script attempted to add sidebar panel from illegal source');
+	if(checkDuplicatePanel(url)) return Services.prompt.alert(null, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', lcurl.startsWith('data:') ? title : url));
+	if(!Services.prompt.confirm(null, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName(lcurl.startsWith('data:') ? 'addRawPanelConfirmMessage' : 'addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n'))) return;
+	addSidebarPanel(title, url, customize, false);
+}
+
+function addPersistentPanel(title, url, customize) {
+	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	title = title || '';
+	url = url || '';
+	customize = customize || '';
+	title += '';
+	url += '';
+	customize += '';
+	const lcurl = url.toLowerCase();
+	if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:') && !lcurl.startsWith('file:')) throw new Error('Script attempted to add sidebar panel from illegal source');
+	if(checkDuplicatePanel(url)) return Services.prompt.alert(null, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', lcurl.startsWith('data:') ? title : url));
+	if(!Services.prompt.confirm(null, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName(lcurl.startsWith('data:') ? 'addRawPanelConfirmMessage' : 'addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n') + '\n' + stringBundles.GetStringFromName('persistentPanelWarning'))) return;
+	addSidebarPanel(title, url, customize, true);
+}
+
+function addRawPanel(title, html, customize) {
+	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	addPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
+}
+
+function addPersistentRawPanel(title, html, customize) {
+	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	addPersistentPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
+}
+
 const stringBundles = Services.strings.createBundle('chrome://netscapesidebar/locale/sidebar/sidebar.properties');
 Services.obs.addObserver({
 	observe(subject, topic, data) {
@@ -60,51 +104,19 @@ Services.obs.addObserver({
 		if(!subject.wrappedJSObject) return;
 		
 		if(!subject.wrappedJSObject.sidebar)
-			subject.wrappedJSObject.sidebar = {};
+			subject.wrappedJSObject.sidebar = Components.utils.cloneInto({}, subject.wrappedJSObject);
 		
 		if(!subject.wrappedJSObject.sidebar.addPanel)
-			subject.wrappedJSObject.sidebar.addPanel = function addPanel(title, url, customize) {
-				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
-				title = title || '';
-				url = url || '';
-				customize = customize || '';
-				title += '';
-				url += '';
-				customize += '';
-				const lcurl = url.toLowerCase();
-				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:') && !lcurl.startsWith('file:')) throw new Error('Script attempted to add sidebar panel from illegal source');
-				if(checkDuplicatePanel(url)) return Services.prompt.alert(subject, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', lcurl.startsWith('data:') ? title : url));
-				if(!Services.prompt.confirm(subject, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName(lcurl.startsWith('data:') ? 'addRawPanelConfirmMessage' : 'addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n'))) return;
-				addSidebarPanel(title, url, customize, false);
-			};
+			exportFunction(addPanel, subject.wrappedJSObject.sidebar);
 		
 		if(!subject.wrappedJSObject.sidebar.addPersistentPanel)
-			subject.wrappedJSObject.sidebar.addPersistentPanel = function addPersistentPanel(title, url, customize) {
-				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
-				title = title || '';
-				url = url || '';
-				customize = customize || '';
-				title += '';
-				url += '';
-				customize += '';
-				const lcurl = url.toLowerCase();
-				if(!lcurl.startsWith('http:') && !lcurl.startsWith('https:') && !lcurl.startsWith('ftp:') && !lcurl.startsWith('data:') && !lcurl.startsWith('chrome:') && !lcurl.startsWith('file:')) throw new Error('Script attempted to add sidebar panel from illegal source');
-				if(checkDuplicatePanel(url)) return Services.prompt.alert(subject, stringBundles.GetStringFromName('dupePanelAlertTitle'), stringBundles.GetStringFromName('dupePanelAlertMessage').replace('%url%', lcurl.startsWith('data:') ? title : url));
-				if(!Services.prompt.confirm(subject, stringBundles.GetStringFromName('addPanelConfirmTitle'), stringBundles.GetStringFromName(lcurl.startsWith('data:') ? 'addRawPanelConfirmMessage' : 'addPanelConfirmMessage').replace('%url%', url).replace('%title%', title).replace('##', '\n\n') + '\n' + stringBundles.GetStringFromName('persistentPanelWarning'))) return;
-				addSidebarPanel(title, url, customize, true);
-			};
+			exportFunction(addPersistentPanel, subject.wrappedJSObject.sidebar);
 		
 		if(!subject.wrappedJSObject.sidebar.addRawPanel)
-			subject.wrappedJSObject.sidebar.addRawPanel = function addRawPanel(title, html, customize) {
-				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
-				subject.wrappedJSObject.sidebar.addPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
-			};
+			exportFunction(addRawPanel, subject.wrappedJSObject.sidebar);
 		
 		if(!subject.wrappedJSObject.sidebar.addPersistentRawPanel)
-			subject.wrappedJSObject.sidebar.addPersistentRawPanel = function addPersistentRawPanel(title, html, customize) {
-				if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
-				subject.wrappedJSObject.sidebar.addPersistentPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
-			};
+			exportFunction(addPersistentRawPanel, subject.wrappedJSObject.sidebar);
 	}
 }, 'content-document-global-created', false);
 
