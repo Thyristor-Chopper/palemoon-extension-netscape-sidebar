@@ -1185,12 +1185,13 @@ function SidebarExpandCollapse() {
 	var sidebar_splitter = document.getElementById('sidebar-splitter');
 	var sidebar_box = document.getElementById('sidebar-box');
 	if(sidebar_splitter.getAttribute('state') == 'collapsed') {
-		if(gMustInit)
-			sidebar_overlay_init();
+		/*if(gMustInit)
+			sidebar_overlay_init();*/
 		debug("Expanding the sidebar");
 		sidebar_splitter.removeAttribute('state');
 		sidebar_box.removeAttribute('collapsed');
 		SidebarSetButtonOpen(true);
+		sidebar_overlay_init();
 	} else {
 		debug("Collapsing the sidebar");
 		sidebar_splitter.setAttribute('state', 'collapsed');
