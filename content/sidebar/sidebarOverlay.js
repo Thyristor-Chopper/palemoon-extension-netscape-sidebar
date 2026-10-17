@@ -58,7 +58,7 @@ function exportFunction(fn, target) {
 }
 
 function addPanel(title, url, customize) {
-	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	if(!sidebarObj.panelsLoaded) throw new Error('Sidebar is not yet initialized');
 	title = title || '';
 	url = url || '';
 	customize = customize || '';
@@ -73,7 +73,7 @@ function addPanel(title, url, customize) {
 }
 
 function addPersistentPanel(title, url, customize) {
-	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	if(!sidebarObj.panelsLoaded) throw new Error('Sidebar is not yet initialized');
 	title = title || '';
 	url = url || '';
 	customize = customize || '';
@@ -88,12 +88,12 @@ function addPersistentPanel(title, url, customize) {
 }
 
 function addRawPanel(title, html, customize) {
-	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	if(!sidebarObj.panelsLoaded) throw new Error('Sidebar is not yet initialized');
 	addPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
 }
 
 function addPersistentRawPanel(title, html, customize) {
-	if(sidebarObj.never_built) throw new Error('Sidebar is not yet initialized');
+	if(!sidebarObj.panelsLoaded) throw new Error('Sidebar is not yet initialized');
 	addPersistentPanel(title, 'data:text/html;base64,' + encodeHTML(html), customize ? ('data:text/html;base64,' + encodeHTML(customize)) : '');
 }
 
@@ -196,8 +196,9 @@ const NC = "http://home.netscape.com/NC-rdf#";
 const SIDEBAR_VERSION = "0.1";
 
 // The default sidebar:
-var sidebarObj = new Object;
+var sidebarObj = new Object();
 sidebarObj.never_built = true;
+sidebarObj.panelsLoaded = false;
 
 //////////////////////////////////////////////////////////////////////
 // sbPanelList Class
@@ -804,6 +805,8 @@ function sidebar_overlay_init() {
 
 	// Sync RDF with broadcasters.
 	SidebarBroadcastersToRDF();
+
+	sidebarObj.panelsLoaded = true;
 
 	// Initialize the display
 	var sidebar_element = document.getElementById('sidebar-box');
